@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "MerkleRTree",
+    "feature-test",
+    "types",
+]
