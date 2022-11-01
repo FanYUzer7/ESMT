@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Index, IndexMut, Mul, Sub};
+use std::ops::{Add, Div, Index, IndexMut, Mul, Sub};
 
 /// 自定义类型V的D维的点
 ///
@@ -113,7 +113,7 @@ fn compare<V: PartialOrd>(a: V, b: V) -> Ordering {
 impl<V, const D: usize> Rect<V, D>
 where
     V: Default + Debug + Copy,
-    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V>,
+    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
 {
     pub fn new(min: Point<V, D>, max: Point<V, D>) -> Self {
         Self {
@@ -254,6 +254,14 @@ where
             area = area * d;
         }
         area
+    }
+
+    pub fn center(&self) -> Point<V, D> {
+        let mut c = [V::default(); D];
+        for i in 0..D {
+            c[i] = (self._max[i] + self._min[i]) / V::from(2)
+        }
+        Point::new(c)
     }
 
     /// 输出信息
