@@ -1,87 +1,21 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, Div, Index, IndexMut, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
-/// 自定义类型V的D维的点
+/// 自定义类型V的D维的矩形
 ///
 /// ```rust
-/// use MerkleRTree::shape::Point;
-/// let mut p = Point::<i32, 2>::default();
-/// p[0] = 1;
-/// p[1] = 2;
-/// println!("{:?}", p)
+/// use MerkleRTree::shape::Rect;
+/// let mut r = Rect::new([1,2], [3,4]);
+/// println!("{:?}", r)
 /// ```
-#[derive(Debug, Clone)]
-pub struct Point<V, const D: usize>
-where
-    V: Default + Debug + Copy,
-{
-    _p: [V; D],
-}
-
 #[derive(Debug, Clone)]
 pub struct Rect<V, const D: usize>
 where
     V: Default + Debug + Copy,
 {
-    _max: Point<V, D>,
-    _min: Point<V, D>,
-}
-
-impl<V, const D: usize> Default for Point<V, D>
-where 
-    V: Default + Debug + Copy
-{
-    fn default() -> Self {
-        Self {
-            _p: [Default::default(); D],
-        }
-    }
-}
-
-impl<V, const D: usize> Index<usize> for Point<V, D>
-where
-    V: Default + Debug + Copy,
-{
-    type Output = V;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self._p[index]
-    }
-}
-
-impl<V, const D: usize> IndexMut<usize> for Point<V, D>
-    where
-        V: Default + Debug + Copy,
-{
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self._p[index]
-    }
-}
-
-impl<V, const D: usize> Point<V, D>
-where
-    V: Default + Debug + Copy,
-{
-    pub fn new(p: [V; D]) -> Self {
-        Self {
-            _p: p,
-        }
-    }
-
-    pub fn get(&self, index: usize) -> Option<&V> {
-        if index < D {
-            Some(&self._p[index])
-        } else {
-            None
-        }
-    }
-
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut V> {
-        if index < D {
-            Some(&mut self._p[index])
-        } else { None }
-    }
+    _max: [V; D],
+    _min: [V; D],
 }
 
 fn min<V: PartialOrd>(a: V, b: V) -> V {
@@ -110,24 +44,30 @@ fn compare<V: PartialOrd>(a: V, b: V) -> Ordering {
     }
 }
 
-impl<V, const D: usize> Rect<V, D>
+impl<V, const D: usize> Rect<V, D> 
 where
     V: Default + Debug + Copy,
-    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
 {
-    pub fn new(min: Point<V, D>, max: Point<V, D>) -> Self {
+    pub fn new(min: [V; D], max: [V; D]) -> Self {
         Self {
             _min: min,
             _max: max,
         }
     }
 
-    pub fn new_point(point: Point<V, D>) -> Self {
+    pub fn new_point(point: [V; D]) -> Self {
         Self {
             _min: point.clone(),
             _max: point,
         }
     }
+}
+
+impl<V, const D: usize> Rect<V, D>
+where
+    V: Default + Debug + Copy,
+    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
+{
 
     pub fn expand(&mut self, rect: &Rect<V, D>) {
         for i in 0..D {
@@ -256,16 +196,28 @@ where
         area
     }
 
-    pub fn center(&self) -> Point<V, D> {
+    pub fn center(&self) -> [V; D] {
         let mut c = [V::default(); D];
         for i in 0..D {
             c[i] = (self._max[i] + self._min[i]) / V::from(2)
         }
-        Point::new(c)
+        c
     }
 
     /// 输出信息
     pub fn display(&self) -> String {
         format!("{{{:?}, {:?}}}", self._min, self._max)
+    }
+}
+
+impl<V, const D: usize> Default for Rect<V, D> 
+where
+    V: Default + Debug + Copy,
+{
+    fn default() -> Self {
+        Self {
+            _max: [Default::default(); D], 
+            _min: [Default::default(); D] 
+        }
     }
 }
