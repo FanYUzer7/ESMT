@@ -1,3 +1,5 @@
+pub mod hash_value;
+
 #[cfg(test)]
 mod tests {
     #[test]
