@@ -11,7 +11,7 @@ static ESMT_SALT: Lazy<HashValue> = Lazy::new(|| {
 });
 
 /// Hash Value in ESMT
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub struct HashValue {
     hash: [u8; HashValue::LENGTH],
 }
