@@ -59,6 +59,10 @@ where
         self.hash
     }
 
+    pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
+        self.hash.as_ref()
+    }
+
     pub fn loc(&self) -> &Rect<V, D> {
         &self.loc
     }
@@ -103,6 +107,17 @@ where
             }
             ESMTEntry::Object(o) => {
                 o.hash()
+            }
+        }
+    }
+
+    pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
+        match self {
+            ESMTEntry::Node(n) => {
+                n.hash_ref()
+            }
+            ESMTEntry::Object(o) => {
+                o.hash_ref()
             }
         }
     }
@@ -171,12 +186,15 @@ where
         self.hash
     }
 
+    pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
+        self.hash.as_ref()
+    }
+
     pub fn rehash(&mut self) -> HashValue {
         let hasher = self.entry
             .iter()
             .fold(ESMTHasher::default(), |mut hasher, entry| {
-                hasher.update(entry.hash().as_ref());
-                hasher
+                hasher.update(entry.hash_ref())
             });
         self.hash = hasher.finish();
         self.hash
