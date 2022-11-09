@@ -1,6 +1,5 @@
-extern crate core;
-
-use core::panicking::panic;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Sub};
 use std::rc::Rc;
@@ -38,7 +37,7 @@ pub enum ESMTEntry<V, const D: usize, const C: usize>
 where
     V: Default + Debug + Copy,
 {
-    Node(Rc<Node<V, D, C>>),
+    Node(Rc<RefCell<Node<V, D, C>>>),
     Object(ObjectEntry<V, D>)
 }
 
@@ -103,7 +102,7 @@ where
     pub fn hash(&self) -> HashValue {
         match self {
             ESMTEntry::Node(n) => {
-                n.hash()
+                n.borrow().hash()
             }
             ESMTEntry::Object(o) => {
                 o.hash()
@@ -114,7 +113,7 @@ where
     pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
         match self {
             ESMTEntry::Node(n) => {
-                n.hash_ref()
+                n.borrow().hash_ref()
             }
             ESMTEntry::Object(o) => {
                 o.hash_ref()
@@ -122,7 +121,19 @@ where
         }
     }
 
-    pub fn unpack_node(self) -> Rc<Node<V, D, C>> {
+    pub fn mbr(&self) -> &Rect<V, D> {
+        match self {
+            ESMTEntry::Node(n) => {
+                n.borrow().mbr()
+            },
+            ESMTEntry::Object(o) => {
+                o.loc()
+            },
+        }
+        BTreeMap
+    }
+
+    pub fn unpack_node(self) -> Rc<RefCell<Node<V, D, C>>> {
         if let Self::Node(n) = self {
             return n;
         }
@@ -136,9 +147,9 @@ where
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_node(&self) -> Rc<Node<V, D, C>> {
+    pub fn get_node(&self) -> &Node<V, D, C> {
         if let Self::Node(n) = self {
-            return Rc::clone(n);
+            return ;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
@@ -164,6 +175,7 @@ where
     V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
 {
     pub const CAPACITY: usize = C;
+    pub const MIN_FANOUT: usize = (Self::CAPACITY + 1) >> 1;
     pub fn new() -> Self {
         Self {
             height: 0,
@@ -182,15 +194,15 @@ where
         }
     }
 
-    pub fn hash(&self) -> HashValue {
+    fn hash(&self) -> HashValue {
         self.hash
     }
 
-    pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
+    fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
         self.hash.as_ref()
     }
 
-    pub fn rehash(&mut self) -> HashValue {
+    fn rehash(&mut self) -> HashValue {
         let hasher = self.entry
             .iter()
             .fold(ESMTHasher::default(), |mut hasher, entry| {
@@ -200,7 +212,52 @@ where
         self.hash
     }
 
-    pub fn mbr(&self) -> &Rect<V, D> {
+    fn mbr(&self) -> &Rect<V, D> {
         &self.mbr
+    }
+
+    fn choose_least_enlargement(&self, rect: &Rect<V, D>) -> usize {
+        if D == 0 {
+            return 0_usize;
+        }
+        let mut candidate_node_idx = 0_usize;
+        let mut min_enlargement = rect._min[0];
+        let mut min_node_area = rect._min[0];
+        for (i, n) in self.entry.iter().enumerate() {
+            let union_area = n.mbr().unioned_area(rect);
+            let node_area = n.mbr().area();
+            let enlargement = union_area - node_area;
+            if i == 0 || enlargement < min_enlargement || (enlargement == min_enlargement && node_area < min_node_area){
+                // 选择enlarge面积最小的节点，当enlarge面积相同时，选择面积最小的节点
+                candidate_node_idx = i;
+                min_enlargement = enlargement;
+                min_node_area = node_area;
+            }
+        }
+        candidate_node_idx
+    }
+    
+    fn choose_subtree(&self, rect: &Rect<V, D>) -> usize {
+        if D == 0 {
+            return 0;
+        }
+        let mut subtree_idx = 0_usize;
+        let mut found = false;
+        let mut candidate_area = rect._max[0];
+        for (i, n) in self.entry.iter().enumerate() {
+            if n.mbr().contains(rect) {
+                let area = n.mbr().area();
+                // 在所有包含的节点中选择面积最小的节点
+                if !found || area < candidate_area {
+                    candidate_area = area;
+                    subtree_idx = i;
+                    found = true;
+                }
+            }
+        }
+        if !found {
+            subtree_idx = self.choose_least_enlargement(rect);
+        }
+        subtree_idx
     }
 }

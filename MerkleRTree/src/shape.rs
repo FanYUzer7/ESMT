@@ -14,8 +14,8 @@ pub struct Rect<V, const D: usize>
 where
     V: Default + Debug + Copy,
 {
-    _max: [V; D],
-    _min: [V; D],
+    pub _max: [V; D],
+    pub _min: [V; D],
 }
 
 fn min<V: PartialOrd>(a: V, b: V) -> V {
