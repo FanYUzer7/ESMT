@@ -8,6 +8,7 @@ use crate::shape::Rect;
 
 pub mod shape;
 
+pub type ValueSpace = f32;
 /// `ObjectEntry`表示`ESMT`中的一个空间对象，只存在于叶子节点中。
 pub struct ObjectEntry<V, const D: usize>
 where
@@ -37,15 +38,12 @@ pub enum ESMTEntry<V, const D: usize, const C: usize>
 where
     V: Default + Debug + Copy,
 {
-    Node(Rc<RefCell<Node<V, D, C>>>),
+    Node(Node<V, D, C>),
     Object(ObjectEntry<V, D>)
 }
 
-impl<V, const D: usize> ObjectEntry<V, D>
-where
-    V: Default + Debug + Copy,
-{
-    pub fn new(key: String, loc: [V; D], hash: HashValue) -> Self {
+impl<const D: usize> ObjectEntry<ValueSpace, D> {
+    pub fn new(key: String, loc: [ValueSpace; D], hash: HashValue) -> Self {
         Self {
             key,
             loc: Rect::new_point(loc),
@@ -62,7 +60,7 @@ where
         self.hash.as_ref()
     }
 
-    pub fn loc(&self) -> &Rect<V, D> {
+    pub fn loc(&self) -> &Rect<ValueSpace, D> {
         &self.loc
     }
 
@@ -70,7 +68,7 @@ where
         self.stale
     }
 
-    pub fn update_loc(&mut self, new_loc: Rect<V, D>) {
+    pub fn update_loc(&mut self, new_loc: Rect<ValueSpace, D>) {
         self.loc = new_loc;
     }
 
@@ -80,11 +78,7 @@ where
 }
 
 // todo: 返回Result，进行错误处理
-impl<V, const D: usize, const C: usize> ESMTEntry<V, D, C>
-where
-    V: Default + Debug + Copy,
-    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
-{
+impl<const D: usize, const C: usize> ESMTEntry<ValueSpace, D, C> {
     pub fn is_node(&self) -> bool {
         if let Self::Node(_) = self {
             return true;
@@ -102,7 +96,7 @@ where
     pub fn hash(&self) -> HashValue {
         match self {
             ESMTEntry::Node(n) => {
-                n.borrow().hash()
+                n.hash()
             }
             ESMTEntry::Object(o) => {
                 o.hash()
@@ -113,7 +107,7 @@ where
     pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
         match self {
             ESMTEntry::Node(n) => {
-                n.borrow().hash_ref()
+                n.hash_ref()
             }
             ESMTEntry::Object(o) => {
                 o.hash_ref()
@@ -121,54 +115,53 @@ where
         }
     }
 
-    pub fn mbr(&self) -> &Rect<V, D> {
+    pub fn mbr(&self) -> &Rect<ValueSpace, D> {
         match self {
             ESMTEntry::Node(n) => {
-                n.borrow().mbr()
+                n.mbr()
             },
             ESMTEntry::Object(o) => {
                 o.loc()
             },
         }
-        BTreeMap
     }
 
-    pub fn unpack_node(self) -> Rc<RefCell<Node<V, D, C>>> {
+    pub fn unpack_node(self) -> Node<ValueSpace, D, C> {
         if let Self::Node(n) = self {
             return n;
         }
         panic!("[ESMTEntry] expect reference of Node, find ObjectEntry");
     }
 
-    pub fn unpack_object(self) -> ObjectEntry<V, D> {
+    pub fn unpack_object(self) -> ObjectEntry<ValueSpace, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_node(&self) -> Rc<RefCell<Node<V, D, C>>> {
+    pub fn get_node(&self) -> &Node<ValueSpace, D, C> {
         if let Self::Node(n) = self {
-            Rc::clone(n)
+            return n;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_node_mut(&self) -> RefMut<Node<V, D, C>> {
+    pub fn get_node_mut(&mut self) -> &mut Node<ValueSpace, D, C> {
         if let Self::Node(n) = self {
-            n.borrow_mut()
+            return n;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_object(&self) -> &ObjectEntry<V, D> {
+    pub fn get_object(&self) -> &ObjectEntry<ValueSpace, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_object_mut(&mut self) -> &mut ObjectEntry<V, D> {
+    pub fn get_object_mut(&mut self) -> &mut ObjectEntry<ValueSpace, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
@@ -176,11 +169,7 @@ where
     }
 }
 
-impl<V, const D: usize, const C: usize> Node<V, D, C>
-where
-    V: Default + Debug + Copy,
-    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
-{
+impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
     pub const CAPACITY: usize = C;
     pub const MIN_FANOUT: usize = (Self::CAPACITY + 1) >> 1;
     pub fn new() -> Self {
@@ -219,11 +208,11 @@ where
         self.hash
     }
 
-    fn mbr(&self) -> &Rect<V, D> {
+    fn mbr(&self) -> &Rect<ValueSpace, D> {
         &self.mbr
     }
 
-    fn choose_least_enlargement(&self, rect: &Rect<V, D>) -> usize {
+    fn choose_least_enlargement(&self, rect: &Rect<ValueSpace, D>) -> usize {
         if D == 0 {
             return 0_usize;
         }
@@ -244,7 +233,7 @@ where
         candidate_node_idx
     }
     
-    fn choose_subtree(&self, rect: &Rect<V, D>) -> usize {
+    fn choose_subtree(&self, rect: &Rect<ValueSpace, D>) -> usize {
         if D == 0 {
             return 0;
         }
@@ -268,10 +257,10 @@ where
         subtree_idx
     }
 
-    fn insert(&mut self, obj: ObjectEntry<V, D>, height: usize) {
+    fn insert(&mut self, obj: ObjectEntry<ValueSpace, D>, height: usize) {
         if height == 0 {
-            self.entry.push(ESMTEntry::Object(obj));
             self.mbr.expand(obj.loc());
+            self.entry.push(ESMTEntry::Object(obj));
         } else {
             let subtree_idx = self.choose_subtree(obj.loc());
             let mut node_mut = self.entry[subtree_idx].get_node_mut();
@@ -286,10 +275,10 @@ where
         self.rehash();
     }
 
-    fn split_by_hilbert_sort(&mut self) -> Rc<RefCell<Node<V, D, C>>> {
-        let new_node = Rc::new(RefCell::new(Node::new_with_height(self.height)));
+    fn split_by_hilbert_sort(&mut self) -> Rc<RefCell<Node<ValueSpace, D, C>>> {
+        let new_node = Rc::new(RefCell::new(Self::new_with_height(self.height)));
         let areas = self.entry.drain(..).collect::<Vec<_>>();
-
+        unimplemented!()
     }
 
     fn recalculate_mbr(&mut self) {
@@ -315,20 +304,21 @@ const HILBERT3: [u8;64] = [
     21,22,25,26,37,38,41,42u8,
 ];
 
-pub fn hilbert_index<V, const D: usize>(area: &Rect<V, D>, obj: &Rect<V, D>) -> u8
-where
-    V: Default + Debug + Copy,
-    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32> + Into<usize>,
-{
-    if D == 0 {
-        return 0u8;
-    }
-    let scale = V::from(8);
-    let center = obj.center();
-    let mut idx = ((center[0] - area._min[0]) * scale) / (area._max[0] - area._min[0]);
+fn hilbert_index<const D: usize>(area: &Rect<ValueSpace, D>, obj: &Rect<ValueSpace, D>) -> u8 {
+    assert_eq!(D, 2, "only support 2-D now!");
+    let scale = 8 as ValueSpace;
+    let center = center(obj);
+    let mut idx = (((center[0] - area._min[0]) * scale) / (area._max[0] - area._min[0])) as usize;
     for i in 1..D {
-        idx = (idx * scale) + ((center[i] - area._min[i]) * scale) / (area._max[i] - area._min[i]);
+        idx = (idx * 8) + (((center[i] - area._min[i]) * scale) / (area._max[i] - area._min[i])) as usize;
     }
-
     HILBERT3[idx]
+}
+
+fn center<const D: usize>(rect: &Rect<ValueSpace, D>) -> [ValueSpace; D] {
+    let mut c = [ValueSpace::default(); D];
+    for i in 0..D {
+        c[i] = (rect._max[i] + rect._min[i]) / (2 as ValueSpace);
+    }
+    c
 }

@@ -66,7 +66,7 @@ where
 impl<V, const D: usize> Rect<V, D>
 where
     V: Default + Debug + Copy,
-    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32>,
+    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V>,
 {
 
     pub fn expand(&mut self, rect: &Rect<V, D>) {
@@ -194,14 +194,6 @@ where
             area = area * d;
         }
         area
-    }
-
-    pub fn center(&self) -> [V; D] {
-        let mut c = [V::default(); D];
-        for i in 0..D {
-            c[i] = (self._max[i] + self._min[i]) / V::from(2)
-        }
-        c
     }
 
     /// 输出信息
