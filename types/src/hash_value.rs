@@ -5,7 +5,7 @@ use crypto::sha3::Sha3;
 use once_cell::sync::Lazy;
 
 static ESMT_SALT: Lazy<HashValue> = Lazy::new(|| {
-    let mut hasher = ESMTHasher::new();
+    let hasher = ESMTHasher::new();
     // add salt
     hasher.update("esmt".as_bytes()).finish()
 });

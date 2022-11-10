@@ -1,8 +1,4 @@
-use std::cell::{RefCell, RefMut};
-use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Sub};
-use std::rc::Rc;
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
@@ -275,9 +271,11 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         self.rehash();
     }
 
-    fn split_by_hilbert_sort(&mut self) -> Rc<RefCell<Node<ValueSpace, D, C>>> {
-        let new_node = Rc::new(RefCell::new(Self::new_with_height(self.height)));
-        let areas = self.entry.drain(..).collect::<Vec<_>>();
+    fn split_by_hilbert_sort(&mut self) -> Node<ValueSpace, D, C> {
+        let new_node = Self::new_with_height(self.height);
+        let mut areas = self.entry.drain(..).collect::<Vec<_>>();
+        let hilbert_sorter = HilbertSorter::new(&self.mbr);
+        let sorted_entry = hilbert_sorter.sort(areas);
         unimplemented!()
     }
 
@@ -304,13 +302,39 @@ const _HILBERT3: [u8;64] = [
     21,22,25,26,37,38,41,42u8,
 ];
 
-fn hilbert_index<const D: usize>(area: &Rect<ValueSpace, D>, obj: &Rect<ValueSpace, D>) -> u8 {
-    assert_eq!(D, 2, "only support 2-D now!");
-    let scale = 8 as ValueSpace;
-    let center = center(obj);
-    let mut idx = (((center[0] - area._min[0]) * scale) / (area._max[0] - area._min[0])) as usize;
-    idx = (idx * 8) + (((center[1] - area._min[1]) * scale) / (area._max[1] - area._min[1])) as usize;
-    _HILBERT3[idx]
+struct HilbertSorter<const D: usize, const C: usize> {
+    lowbound: [ValueSpace; D],
+    range: [ValueSpace; D],
+}
+
+impl<const D: usize, const C: usize> HilbertSorter<D, C> {
+    pub fn new(area: &Rect<ValueSpace, D>) -> Self {
+        let mut range = [ValueSpace::default(); D];
+        for i in 0..D {
+            range[i] = area._max[i] - area._min[i];
+        }
+        Self {
+            lowbound: area._min.clone(),
+            range,
+        }
+    }
+
+    fn hilbert_idx(&self, obj: &Rect<ValueSpace, D>) -> u8 {
+        assert_eq!(D, 2, "only support 2-D now!");
+        let obj_c = center(obj);
+        let mut idx = (((obj_c[0] - self.lowbound[0]) * 8 as ValueSpace) / self.range[0]) as usize;
+        idx = idx * 8 + (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]) as usize;
+        _HILBERT3[idx]
+    }
+
+    pub fn sort(&self, mut v: Vec<ESMTEntry<ValueSpace, D, C>>) -> Vec<ESMTEntry<ValueSpace, D, C>> {
+        v.sort_by(|a, b| {
+            let a_idx = self.hilbert_idx(a.mbr());
+            let b_idx = self.hilbert_idx(b.mbr());
+            a_idx.cmp(&b_idx)
+        });
+        v
+    }
 }
 
 fn center<const D: usize>(rect: &Rect<ValueSpace, D>) -> [ValueSpace; D] {
