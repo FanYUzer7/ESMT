@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Sub};
@@ -147,9 +147,16 @@ where
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_node(&self) -> &Node<V, D, C> {
+    pub fn get_node(&self) -> Rc<RefCell<Node<V, D, C>>> {
         if let Self::Node(n) = self {
-            return ;
+            Rc::clone(n)
+        }
+        panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
+    }
+
+    pub fn get_node_mut(&self) -> RefMut<Node<V, D, C>> {
+        if let Self::Node(n) = self {
+            n.borrow_mut()
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
@@ -260,4 +267,68 @@ where
         }
         subtree_idx
     }
+
+    fn insert(&mut self, obj: ObjectEntry<V, D>, height: usize) {
+        if height == 0 {
+            self.entry.push(ESMTEntry::Object(obj));
+            self.mbr.expand(obj.loc());
+        } else {
+            let subtree_idx = self.choose_subtree(obj.loc());
+            let mut node_mut = self.entry[subtree_idx].get_node_mut();
+            node_mut.insert(obj, height - 1);
+            // need to split
+            if node_mut.entry.len() >= Self::CAPACITY {
+                // 重新计算mbr
+            } else {
+                self.mbr.expand(node_mut.mbr());
+            }
+        }
+        self.rehash();
+    }
+
+    fn split_by_hilbert_sort(&mut self) -> Rc<RefCell<Node<V, D, C>>> {
+        let new_node = Rc::new(RefCell::new(Node::new_with_height(self.height)));
+        let areas = self.entry.drain(..).collect::<Vec<_>>();
+
+    }
+
+    fn recalculate_mbr(&mut self) {
+        if self.entry.is_empty() {
+            return;
+        }
+        let mut rect = self.entry[0].mbr().clone();
+        for i in 1..self.entry.len() {
+            rect.expand(self.entry[i].mbr());
+        }
+        self.mbr = rect;
+    }
+}
+
+const HILBERT3: [u8;64] = [
+    0,3,4,5,58,59,60,63,
+    1,2,7,6,57,56,61,62,
+    14,13,8,9,54,55,50,49,
+    15,12,11,10,53,52,51,48,
+    16,17,30,31,32,33,46,47,
+    19,18,29,28,25,34,45,44,
+    20,23,24,27,36,39,40,43,
+    21,22,25,26,37,38,41,42u8,
+];
+
+pub fn hilbert_index<V, const D: usize>(area: &Rect<V, D>, obj: &Rect<V, D>) -> u8
+where
+    V: Default + Debug + Copy,
+    V: PartialOrd + Sub<Output=V> + Add<Output=V> + Mul<Output=V> + Div<Output=V> + From<i32> + Into<usize>,
+{
+    if D == 0 {
+        return 0u8;
+    }
+    let scale = V::from(8);
+    let center = obj.center();
+    let mut idx = ((center[0] - area._min[0]) * scale) / (area._max[0] - area._min[0]);
+    for i in 1..D {
+        idx = (idx * scale) + ((center[i] - area._min[i]) * scale) / (area._max[i] - area._min[i]);
+    }
+
+    HILBERT3[idx]
 }
