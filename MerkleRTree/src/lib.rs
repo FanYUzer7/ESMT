@@ -293,7 +293,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
     }
 }
 
-const HILBERT3: [u8;64] = [
+const _HILBERT3: [u8;64] = [
     0,3,4,5,58,59,60,63,
     1,2,7,6,57,56,61,62,
     14,13,8,9,54,55,50,49,
@@ -309,10 +309,8 @@ fn hilbert_index<const D: usize>(area: &Rect<ValueSpace, D>, obj: &Rect<ValueSpa
     let scale = 8 as ValueSpace;
     let center = center(obj);
     let mut idx = (((center[0] - area._min[0]) * scale) / (area._max[0] - area._min[0])) as usize;
-    for i in 1..D {
-        idx = (idx * 8) + (((center[i] - area._min[i]) * scale) / (area._max[i] - area._min[i])) as usize;
-    }
-    HILBERT3[idx]
+    idx = (idx * 8) + (((center[1] - area._min[1]) * scale) / (area._max[1] - area._min[1])) as usize;
+    _HILBERT3[idx]
 }
 
 fn center<const D: usize>(rect: &Rect<ValueSpace, D>) -> [ValueSpace; D] {
