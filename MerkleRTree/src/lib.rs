@@ -344,3 +344,56 @@ fn center<const D: usize>(rect: &Rect<ValueSpace, D>) -> [ValueSpace; D] {
     }
     c
 }
+
+#[cfg(test)]
+mod test {
+    use std::time::Instant;
+    use crate::shape::Rect;
+    use crate::{HilbertSorter, ESMTEntry, ObjectEntry, ValueSpace};
+    use rand::{thread_rng, Rng};
+    use types::hash_value::HashValue;
+
+    #[test]
+    fn test_efficient() {
+        let mut time = 0;
+        for _ in 0..100 {
+            let mut v = generate_random_rect();
+            let sorter = HilbertSorter::<2, 40>::new(&Rect::new([0f32, 0f32], [100f32, 100f32]));
+            let start = Instant::now();
+            let sorted_v = {
+                v.sort_by(|a, b| {
+                    let a_idx = sorter.hilbert_idx(a.mbr());
+                    let b_idx = sorter.hilbert_idx(b.mbr());
+                    a_idx.cmp(&b_idx)
+                });
+                v
+            };
+            time += start.elapsed().as_micros();
+        }
+        println!("sort by func avg time = {}us", time / 100);
+
+        time = 0;
+        for _ in 0..100 {
+            let mut v = generate_random_rect();
+            let sorter = HilbertSorter::<2, 40>::new(&Rect::new([0f32, 0f32], [100f32, 100f32]));
+            let start = Instant::now();
+            let sorted_v = {
+                let mut m = v.into_iter().map(|e| (sorter.hilbert_idx(e.mbr()), e)).collect::<Vec<_>>();
+                m.sort_by(|a,b| a.0.cmp(&b.0));
+                m.into_iter().map(|(_,e)| e).collect::<Vec<_>>()
+            };
+            time += start.elapsed().as_micros();
+        }
+        println!("pack iter & unpack avg time = {}us", time / 100);
+    }
+
+    fn generate_random_rect() -> Vec<ESMTEntry<ValueSpace, 2, 40>> {
+        let mut rng = thread_rng();
+        let mut v = vec![];
+        for _ in 0..1000 {
+            let p = rng.gen_range(0f32..100_f32);
+            v.push(ESMTEntry::Object(ObjectEntry::new("key".to_string(), [p, p], HashValue::zero())));
+        }
+        v
+    }
+}
