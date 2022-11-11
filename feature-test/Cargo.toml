@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 MerkleRTree = { path = "../MerkleRTree", version = "0.1.0" }
 chrono = "0.4.19"
+types = { path = "../types", version = "0.1.0" }
