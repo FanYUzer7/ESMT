@@ -1,4 +1,3 @@
-use std::sync::Mutex;
 use glium::{Display, Frame, glutin, implement_vertex, Program, Surface};
 use glium::glutin::event::{ElementState, WindowEvent};
 use glium::glutin::event_loop::EventLoop;
@@ -14,7 +13,7 @@ struct Vertex {
     lcolor: [f32; 3],
 }
 
-const color_set: [[f32;3]; 7]= [
+const COLOR_SET: [[f32;3]; 7]= [
     [0.0, 0.0, 0.0], // hei
     [0.0, 0.0, 1.0], // lan
     [0.0, 1.0, 0.0], // lv
@@ -45,7 +44,7 @@ impl MerkleTreeDrawer {
         // |/ |
         // 1--3
         let (height, rect) = source;
-        let color = color_set[(*height) as usize].clone();
+        let color = COLOR_SET[(*height) as usize].clone();
         let vertex0 = Vertex { position: [rect._min[0], rect._max[1]], lcolor: color.clone()};
         let vertex1 = Vertex { position: [rect._min[0], rect._min[1]], lcolor: color.clone()};
         let vertex2 = Vertex { position: [rect._max[0], rect._max[1]], lcolor: color.clone()};
@@ -79,7 +78,7 @@ implement_vertex!(Vertex, position, lcolor);
 
 fn main() {
 
-    let mut events_loop = EventLoop::new();
+    let events_loop = EventLoop::new();
     let window = WindowBuilder::new();
     let context = glium::glutin::ContextBuilder::new();
     let display = glium::Display::new(window, context, &events_loop).unwrap();

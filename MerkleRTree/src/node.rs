@@ -1,6 +1,5 @@
 use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Debug;
-use std::mem;
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
@@ -208,7 +207,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
             .collect::<BTreeSet<_>>();
         let hasher = hash_set
             .iter()
-            .fold(ESMTHasher::default(), |mut hasher, entry| {
+            .fold(ESMTHasher::default(), |hasher, entry| {
                 hasher.update(entry.as_ref())
             });
         self.hash = hasher.finish();
@@ -274,7 +273,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
             }
         } else {
             let subtree_idx = self.choose_subtree(obj.loc());
-            let mut node_mut = self.entry[subtree_idx].get_node_mut();
+            let node_mut = self.entry[subtree_idx].get_node_mut();
             node_mut.insert(obj, height - 1);
             // need to split
             if node_mut.entry.len() >= Self::CAPACITY {
@@ -291,7 +290,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
 
     fn split_by_hilbert_sort(&mut self) -> Node<ValueSpace, D, C> {
         let mut new_node = Self::new_with_height(self.height);
-        let mut areas = self.entry.drain(..).collect::<Vec<_>>();
+        let areas = self.entry.drain(..).collect::<Vec<_>>();
         let hilbert_sorter = HilbertSorter::new(&self.mbr);
         let mut sorted_entry = hilbert_sorter.sort(areas);
         let cnt_after_split = sorted_entry.len() - Self::MIN_FANOUT;
@@ -322,7 +321,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         }
         let init_mbr = self.entry[0].mbr().clone();
         let (hasher, mbr) = self.entry.iter()
-            .fold((ESMTHasher::default(), init_mbr), |(mut hasher, mut mbr), e| {
+            .fold((ESMTHasher::default(), init_mbr), |(hasher, mut mbr), e| {
                 mbr.expand(e.mbr());
                 (hasher.update(e.hash_ref()), mbr)
             });
@@ -391,7 +390,7 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
         _HILBERT3[idx]
     }
 
-    pub fn sort(&self, mut v: Vec<ESMTEntry<ValueSpace, D, C>>) -> Vec<ESMTEntry<ValueSpace, D, C>> {
+    pub fn sort(&self, v: Vec<ESMTEntry<ValueSpace, D, C>>) -> Vec<ESMTEntry<ValueSpace, D, C>> {
         // calculate hilebert index
         let mut indexed = v.into_iter()
             .map(|e| (self.hilbert_idx(e.mbr()), e))
@@ -492,7 +491,7 @@ mod test {
             let mut v = generate_random_rect();
             let sorter = HilbertSorter::<2, 40>::new(&Rect::new([0f32, 0f32], [100f32, 100f32]));
             let start = Instant::now();
-            let sorted_v = {
+            let _sorted_v = {
                 v.sort_by(|a, b| {
                     let a_idx = sorter.hilbert_idx(a.mbr());
                     let b_idx = sorter.hilbert_idx(b.mbr());
@@ -507,7 +506,7 @@ mod test {
         time = 0;
         let mut time_p = 0;
         for _ in 0..100 {
-            let mut v = generate_random_rect();
+            let v = generate_random_rect();
             let sorter = HilbertSorter::<2, 40>::new(&Rect::new([0f32, 0f32], [100f32, 100f32]));
             let start = Instant::now();
             let mut sorted_v = {
