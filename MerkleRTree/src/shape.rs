@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
 
 /// 自定义类型V的D维的矩形
@@ -60,6 +60,15 @@ where
             _min: point.clone(),
             _max: point,
         }
+    }
+}
+
+impl<V, const D: usize> Display for Rect<V, D>
+where
+    V: Default + Debug + Copy,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{{:?}, {:?}}}", self._min, self._max)
     }
 }
 

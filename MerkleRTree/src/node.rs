@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Debug;
 use std::mem;
 use types::hash_value::{ESMTHasher, HashValue};
@@ -194,6 +194,14 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         self.hash.as_ref()
     }
 
+    pub fn is_overflow(&self) -> bool {
+        self.entry.len() > Self::CAPACITY
+    }
+
+    pub fn need_downcast(&self) -> bool {
+        self.entry.len() < Self::MIN_FANOUT
+    }
+
     fn rehash(&mut self) {
         let hash_set = self.entry.iter()
             .map(|e| e.hash())
@@ -201,7 +209,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         let hasher = hash_set
             .iter()
             .fold(ESMTHasher::default(), |mut hasher, entry| {
-                hasher.update(entry.hash_ref())
+                hasher.update(entry.as_ref())
             });
         self.hash = hasher.finish();
     }
@@ -257,8 +265,13 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
 
     pub fn insert(&mut self, obj: ObjectEntry<ValueSpace, D>, height: u32) {
         if height == 0 {
-            self.mbr.expand(obj.loc());
-            self.entry.push(ESMTEntry::Object(obj));
+            if self.entry.is_empty() {
+                self.entry.push(ESMTEntry::Object(obj));
+                self.recalculate_mbr();
+            } else {
+                self.mbr.expand(obj.loc());
+                self.entry.push(ESMTEntry::Object(obj));
+            }
         } else {
             let subtree_idx = self.choose_subtree(obj.loc());
             let mut node_mut = self.entry[subtree_idx].get_node_mut();
@@ -286,8 +299,8 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         new_node.entry.extend(sorted_entry.into_iter());
 
         // recalculate mbr
-        self.recalculate_state();
-        new_node.recalculate_state();
+        self.recalculate_state_after_sort();
+        new_node.recalculate_state_after_sort();
         new_node
     }
 
@@ -315,6 +328,27 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
             });
         self.hash = hasher.finish();
         self.mbr = mbr;
+    }
+
+    pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {
+        let mut res = vec![];
+        let mut objs = vec![];
+        let mut queue = VecDeque::new();
+        queue.push_back(self);
+        while !queue.is_empty() {
+            let node = queue.pop_front().unwrap();
+            res.push((node.height, node.mbr.clone()));
+            if !(node.height == 0) {
+                for entry in node.entry.iter() {
+                    queue.push_back(entry.get_node());
+                }
+            } else {
+                for entry in node.entry.iter() {
+                    objs.push(entry.mbr().clone())
+                }
+            }
+        }
+        (res, objs)
     }
 }
 
@@ -349,8 +383,11 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
     fn hilbert_idx(&self, obj: &Rect<ValueSpace, D>) -> u8 {
         assert_eq!(D, 2, "only support 2-D now!");
         let obj_c = center(obj);
-        let mut idx = (((obj_c[0] - self.lowbound[0]) * 8 as ValueSpace) / self.range[0]) as usize;
-        idx = idx * 8 + (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]) as usize;
+        let mut x = (((obj_c[0] - self.lowbound[0]) * 8 as ValueSpace) / self.range[0]).floor() as usize;
+        let mut y = (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]).floor() as usize;
+        x = x - x >> 3;
+        y = y - y >> 3;
+        let idx = (x << 3) | y;
         _HILBERT3[idx]
     }
 
@@ -366,8 +403,6 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
             .map(|(_, e)| e)
             .collect()
     }
-
-
 }
 
 fn center<const D: usize>(rect: &Rect<ValueSpace, D>) -> [ValueSpace; D] {
@@ -416,16 +451,28 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
         let obj = ObjectEntry::new(key, loc, hash);
         let root = self.root.as_mut().unwrap();
         root.insert(obj, self.height);
-        if root.entry.len() == Node::CAPACITY {
+        if root.is_overflow() {
             self.height += 1;
             let mut new_root = Node::new_with_height(self.height);
             let another = root.split_by_hilbert_sort();
             let origin = self.root.take().unwrap();
             new_root.entry.push(ESMTEntry::ENode(origin));
             new_root.entry.push(ESMTEntry::ENode(another));
+            new_root.recalculate_mbr();
             self.root = Some(new_root);
         }
         self.len += 1;
+    }
+
+    pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {
+        match &self.root {
+            None => {
+                (vec![], vec![])
+            }
+            Some(root) => {
+                root.display()
+            }
+        }
     }
 }
 
