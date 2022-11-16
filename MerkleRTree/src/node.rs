@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
-pub type ValueSpace = f32;
+pub type ValueSpace = usize;
 /// `ObjectEntry`表示`ESMT`中的一个空间对象，只存在于叶子节点中。
 pub struct ObjectEntry<V, const D: usize>
     where
@@ -203,12 +203,12 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
 
     fn rehash(&mut self) {
         let hash_set = self.entry.iter()
-            .map(|e| e.hash())
+            .map(|e| e.hash_ref())
             .collect::<BTreeSet<_>>();
         let hasher = hash_set
-            .iter()
+            .into_iter()
             .fold(ESMTHasher::default(), |hasher, entry| {
-                hasher.update(entry.as_ref())
+                hasher.update(entry)
             });
         self.hash = hasher.finish();
     }
@@ -276,7 +276,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
             let node_mut = self.entry[subtree_idx].get_node_mut();
             node_mut.insert(obj, height - 1);
             // need to split
-            if node_mut.entry.len() >= Self::CAPACITY {
+            if node_mut.entry.len() > Self::CAPACITY {
                 // 分裂并重新计算mbr
                 let new_node = node_mut.split_by_hilbert_sort();
                 self.entry.push(ESMTEntry::ENode(new_node));
@@ -320,10 +320,15 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
             return;
         }
         let init_mbr = self.entry[0].mbr().clone();
-        let (hasher, mbr) = self.entry.iter()
-            .fold((ESMTHasher::default(), init_mbr), |(hasher, mut mbr), e| {
+        let (hash_set, mbr) = self.entry.iter()
+            .fold((BTreeSet::new(), init_mbr), |(mut set, mut mbr), e| {
                 mbr.expand(e.mbr());
-                (hasher.update(e.hash_ref()), mbr)
+                set.insert(e.hash_ref());
+                (set, mbr)
+            });
+        let hasher = hash_set.into_iter()
+            .fold(ESMTHasher::default(), |hasher, h| {
+                hasher.update(h)
             });
         self.hash = hasher.finish();
         self.mbr = mbr;
@@ -362,7 +367,7 @@ const _HILBERT3: [u8;64] = [
     21,22,25,26,37,38,41,42u8,
 ];
 
-struct HilbertSorter<const D: usize, const C: usize> {
+pub struct HilbertSorter<const D: usize, const C: usize> {
     lowbound: [ValueSpace; D],
     range: [ValueSpace; D],
 }
@@ -379,13 +384,13 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
         }
     }
 
-    fn hilbert_idx(&self, obj: &Rect<ValueSpace, D>) -> u8 {
+    pub fn hilbert_idx(&self, obj: &Rect<ValueSpace, D>) -> u8 {
         assert_eq!(D, 2, "only support 2-D now!");
         let obj_c = center(obj);
-        let mut x = (((obj_c[0] - self.lowbound[0]) * 8 as ValueSpace) / self.range[0]).floor() as usize;
-        let mut y = (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]).floor() as usize;
-        x = x - x >> 3;
-        y = y - y >> 3;
+        let mut x = (((obj_c[0] - self.lowbound[0]) * 8 as ValueSpace) / self.range[0]) as usize;
+        let mut y = (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]) as usize;
+        x = x - (x >> 3);
+        y = y - (y >> 3);
         let idx = (x << 3) | y;
         _HILBERT3[idx]
     }
@@ -457,7 +462,7 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
             let origin = self.root.take().unwrap();
             new_root.entry.push(ESMTEntry::ENode(origin));
             new_root.entry.push(ESMTEntry::ENode(another));
-            new_root.recalculate_mbr();
+            new_root.recalculate_state_after_sort();
             self.root = Some(new_root);
         }
         self.len += 1;
@@ -473,15 +478,27 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
             }
         }
     }
+
+    pub fn root_hash(&self) -> Option<HashValue> {
+        match &self.root {
+            None => {
+                None
+            }
+            Some(root) => {
+                Some(root.hash())
+            }
+        }
+    }
 }
 
 
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeSet;
     use std::time::Instant;
     use crate::shape::Rect;
     use rand::{thread_rng, Rng};
-    use types::hash_value::HashValue;
+    use types::hash_value::{ESMTHasher, HashValue};
     use crate::node::{ESMTEntry, HilbertSorter, ObjectEntry, ValueSpace};
 
     #[test]
@@ -530,5 +547,61 @@ mod test {
             v.push(ESMTEntry::Object(ObjectEntry::new("key".to_string(), [p, p], HashValue::zero())));
         }
         v
+    }
+
+    fn test_root_hash() {
+        // let mut rng = thread_rng();
+        let points = vec![
+            [1usize, 8],
+            [3, 9],
+            [3, 6],
+            [9, 2],
+            [2, 7],
+            [7, 1],
+            [3, 1],
+            [5, 8],
+        ];
+        let mut hashes = vec![];
+        for i in 0..8 {
+            hashes.push(hash(i));
+        }
+        let mut root_hashes = vec![];
+        let mut node_set = BTreeSet::new();
+        // 插入0，1，2
+        for i in 0..3usize {
+            node_set.insert(hashes[i]);
+            root_hashes.push(calc_hash(&node_set));
+        }
+        let h = vec![
+            "762a02e8898f0a78ab0b08fcbc5a1a7f6af94f3d8bcc6255f000972c7fb0b835".to_string(),
+            "3bc18bc99703ddb4806a4c9b3d77622f868485794555f2a82755b9b058a5853c".to_string(),
+            "f1aeb9ad07cf28af64c862e7b5f6dc9b5bd900f81f88812caf651d79720516bc".to_string(),
+            "7e061d9ea5d03d4fa8f0bcab2e63e575e978c1833e6e2209aa484ffc7daec65f".to_string(),
+            "2dc9ac5321743fd711eba2e6d1bd43d682404f26a0b1f85bd6ea89b3187f180b".to_string(),
+        ];
+        for s in h {
+            let bytes = hex::decode(s).unwrap();
+            root_hashes.push(HashValue::from_slice(&bytes).unwrap());
+        }
+        let mut tree = Tree::<usize, 2, 3>::new();
+        for (idx, (node_hash, expected_root_hash)) in hashes.into_iter().zip(root_hashes.into_iter()).enumerate() {
+            tree.insert("test".to_string(), points[idx].clone(), node_hash);
+            assert_eq!(expected_root_hash, tree.root_hash().unwrap());
+            println!("test-{} pass", idx);
+        }
+    }
+
+    fn hash(data: i32) -> HashValue {
+        let bytes = data.to_le_bytes();
+        let hasher = ESMTHasher::default();
+        hasher.update(&bytes).finish()
+    }
+
+    fn calc_hash(set: &BTreeSet<HashValue>) -> HashValue {
+        let hasher = set.iter()
+            .fold(ESMTHasher::default(), |h, hash| {
+                h.update(hash.as_ref())
+            });
+        hasher.finish()
     }
 }

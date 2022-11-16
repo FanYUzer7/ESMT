@@ -106,7 +106,7 @@ fn main() {
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src,
                                               None).unwrap();
 
-    let mut tree = MerkleRTree::node::MerkleRTree::<f32, 2, 3>::new();
+    let mut tree = MerkleRTree::node::MerkleRTree::<f32, 2, 4>::new();
     let mut rng = thread_rng();
     let mut nodes = vec![];
     let mut objs = vec![];
@@ -134,7 +134,7 @@ fn main() {
                         (nodes, objs) = tree.display();
                         inserted = true;
                     } else if input.scancode == 19 && input.state == ElementState::Released {
-                        tree = MerkleRTree::node::MerkleRTree::<f32, 2, 3>::new();
+                        tree = MerkleRTree::node::MerkleRTree::<f32, 2, 4>::new();
                     }
                 }
                 _ => return,
