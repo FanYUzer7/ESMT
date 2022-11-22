@@ -539,10 +539,17 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
                 }              
             }
             // reinsert
+            if !reinsert.is_empty() {
+                self.reinsert(reinsert);
+            }
             removed.map(|entry| entry.unpack_object())
         } else {
             None
         }
+    }
+
+    fn reinsert(&mut self, reinsert_list: Vec<ESMTEntry<ValueSpace, D, C>>) {
+
     }
 
     pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {
