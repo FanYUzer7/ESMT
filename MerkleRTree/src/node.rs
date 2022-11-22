@@ -70,6 +70,10 @@ impl<const D: usize> ObjectEntry<ValueSpace, D> {
     pub fn delete(&mut self) {
         self.stale = true;
     }
+
+    pub fn match_key(&self, key_2_match: &str) -> bool {
+        self.key == key_2_match
+    }
 }
 
 // todo: 返回Result，进行错误处理
@@ -334,6 +338,53 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         self.mbr = mbr;
     }
 
+    /// 删除时会重新计算每一层的mbr以及hash；是否发生下溢由上一层进行判断
+    pub fn delete(&mut self, 
+        rect: &Rect<ValueSpace, D>, 
+        key: &str, 
+        reinsert: &mut Vec<ESMTEntry<ValueSpace, D, C>>,
+        height: u32,
+    ) -> (Option<ESMTEntry<ValueSpace, D, C>>, bool) {
+        if height == 0 {
+            for i in 0..self.entry.len() {
+                if self.entry[i].get_object().match_key(key) {
+                    let to_delete = self.entry.swap_remove(i);
+                    let recalced = self.mbr.on_edge(to_delete.mbr());
+                    if recalced {
+                        self.recalculate_mbr();
+                    }
+                    self.rehash();
+                    return (
+                        Some(to_delete),
+                        recalced
+                    );
+                }
+            }
+        } else {
+            for i in 0..self.entry.len() {
+                if !rect.intersects(self.entry[i].mbr()) {
+                    continue;
+                }
+                let node = self.entry[i].get_node_mut();
+                let (removed, mut recalced) = node.delete(rect, key, reinsert, height - 1);
+                if removed.is_none() {
+                    continue;
+                }
+                if node.entry.len() < Self::MIN_FANOUT {
+                    reinsert.extend(node.entry.drain(..));
+                    let underflow_node = self.entry.swap_remove(i);
+                    recalced = self.mbr.on_edge(underflow_node.mbr());
+                }
+                if recalced {
+                    self.recalculate_mbr();
+                }
+                self.rehash();
+                return (removed, recalced);
+            }
+        }
+        (None, false)
+    }
+
     pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {
         let mut res = vec![];
         let mut objs = vec![];
@@ -466,6 +517,32 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
             self.root = Some(new_root);
         }
         self.len += 1;
+    }
+
+    pub fn delete(&mut self, key: &str, rect: &Rect<ValueSpace, D>) -> Option<ObjectEntry<ValueSpace, D>> {
+        if let Some(root) = &mut self.root {
+            let mut reinsert = Vec::new();
+            let (removed, recalced) = root.delete(rect, key, &mut reinsert, self.height);
+            if removed.is_none() {
+                return None;
+            }
+            self.len -= 1;
+            if self.height == 0 {
+                if self.len == 0 {
+                    self.root = None;
+                }
+            } else {
+                if root.entry.len() == 1 {
+                    let new_root = root.entry.pop().unwrap().unpack_node();
+                    self.root = Some(new_root);
+                    self.height -= 1;
+                }              
+            }
+            // reinsert
+            removed.map(|entry| entry.unpack_object())
+        } else {
+            None
+        }
     }
 
     pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {

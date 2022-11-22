@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use rand::{Rng, thread_rng};
 use types::hash_value::{ESMTHasher, HashValue};
-use MerkleRTree::node::{HilbertSorter, MerkleRTree as Tree};
+use MerkleRTree::node::{MerkleRTree as Tree, HilbertSorter};
 use MerkleRTree::shape::Rect;
 
 fn main() {
