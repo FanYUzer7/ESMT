@@ -11,3 +11,4 @@ types = { path = "../types", version = "0.1.0" }
 [dev-dependencies]
 chrono = "0.4.19"
 rand = "0.8.5"
+hex = "0.4.3"
