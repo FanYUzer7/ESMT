@@ -443,7 +443,7 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
         let mut y = (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]) as usize;
         x = x - (x >> 3);
         y = y - (y >> 3);
-        let idx = (x << 3) | y;
+        let idx = (y << 3) | x;
         _HILBERT3[idx]
     }
 
@@ -456,7 +456,10 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
         indexed.sort_by(|a, b| a.0.cmp(&b.0));
         // discard index
         indexed.into_iter()
-            .map(|(_, e)| e)
+            .map(|(hi, e)| {
+                // println!("{}, loc: {:?}", hi, center(e.mbr()));
+                e
+            })
             .collect()
     }
 }
