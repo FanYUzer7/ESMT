@@ -545,13 +545,14 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
             } else {
                 if root.entry.len() == 1 {
                     let new_root = root.entry.pop().unwrap().unpack_node();
+                    self.height = new_root.height;
                     self.root = Some(new_root);
-                    self.height -= 1;
                 }              
             }
             // reinsert
             if !reinsert.is_empty() {
-                self.reinsert(reinsert);
+                println!("need re-insert");
+                // self.reinsert(reinsert);
             }
             removed.map(|entry| entry.unpack_object())
         } else {

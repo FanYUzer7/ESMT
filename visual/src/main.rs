@@ -138,6 +138,10 @@ fn main() {
                         modified = true;
                     } else if input.scancode == 19 && input.state == ElementState::Released {
                         tree = MerkleRTree::node::MerkleRTree::<f32, 2, 4>::new();
+                        nodes.clear();
+                        objs.clear();
+                        inserted_object.clear();
+                        modified = true;
                     } else if input.scancode == 32 && input.state == ElementState::Released {
                         let idx = rng.gen_range(0..inserted_object.len());
                         let (key, rect) = inserted_object.swap_remove(idx);
