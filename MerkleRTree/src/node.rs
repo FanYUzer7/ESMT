@@ -514,7 +514,7 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
 
     fn insert_impl(&mut self, entry: ESMTEntry<ValueSpace, D, C>, loc: &Rect<ValueSpace, D>, height: u32) {
         let root = self.root.as_mut().unwrap();
-        root.insert(entry, loc, self.height);
+        root.insert(entry, loc, height);
         if root.is_overflow() {
             self.height += 1;
             let mut new_root = Node::new_with_height(self.height);
@@ -562,21 +562,16 @@ impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
     }
 
     fn reinsert(&mut self, reinsert_list: Vec<ESMTEntry<ValueSpace, D, C>>) {
-        println!("start reinsert. Current height: {}", self.height);
         for entry in reinsert_list.into_iter().rev() {
+            // println!("start reinsert. Current height: {}", self.height);
             let entry_loc = entry.mbr().clone();
-            // let expected_height_to_insert = if entry.is_node() {
-            //     println!("re-insert node");
-            //     self.height - entry.get_node().height - 1
-            // } else {
-            //     println!("re-insert object");
-            //     self.height
-            // };
-            if entry.is_node() {
-                println!("re-insert node");
+            let expected_height_to_insert = if entry.is_node() {
+                // println!("re-insert node");
                 self.height - entry.get_node().height - 1
-            }
-            println!("expected_height_to_insert = {}", expected_height_to_insert);
+            } else {
+                // println!("re-insert object");
+                self.height
+            };
             self.insert_impl(entry, &entry_loc, expected_height_to_insert);
         }
     }
