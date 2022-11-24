@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
-pub type ValueSpace = f32;
+pub type ValueSpace = usize;
 /// `ObjectEntry`表示`ESMT`中的一个空间对象，只存在于叶子节点中。
 pub struct ObjectEntry<V, const D: usize>
     where
@@ -683,11 +683,11 @@ mod test {
             root_hashes.push(calc_hash(&node_set));
         }
         let h = vec![
-            "762a02e8898f0a78ab0b08fcbc5a1a7f6af94f3d8bcc6255f000972c7fb0b835".to_string(),
-            "3bc18bc99703ddb4806a4c9b3d77622f868485794555f2a82755b9b058a5853c".to_string(),
-            "f1aeb9ad07cf28af64c862e7b5f6dc9b5bd900f81f88812caf651d79720516bc".to_string(),
-            "7e061d9ea5d03d4fa8f0bcab2e63e575e978c1833e6e2209aa484ffc7daec65f".to_string(),
-            "2dc9ac5321743fd711eba2e6d1bd43d682404f26a0b1f85bd6ea89b3187f180b".to_string(),
+            "0bd13fbae340f13bc8580b2d777c5393652a2e4fce220bb618b156b8cf97b90f".to_string(),
+            "7b5b68e400187a7c07f1af2043315dee22517f0919cfd1df1b21a319b0bb04e4".to_string(),
+            "902d1aaa9fdedf73a5cb2e289a941d7baed0db1263581e50e09643494c0b917d".to_string(),
+            "106175f02bfa4344275457c2da1d9b4cc2d3016a4fd4fc73492a894bbaa2b8aa".to_string(),
+            "c9d49706741c3453968f696ff6324e21b7078fcf6171546fa8bad7ef32821593".to_string(),
         ];
         for s in h {
             let bytes = hex::decode(s).unwrap();
@@ -699,6 +699,15 @@ mod test {
             assert_eq!(expected_root_hash, tree.root_hash().unwrap());
             println!("test-{} pass", idx);
         }
+        let delete_hash = vec![
+            "58296e1fbd0b2e93fde939693fa3d0252003bf97c80a46dabc50f0de1c894e33".to_string(),
+            "67a4b78b7ff4ec7ad62ce52e1bf3d8936d689733d3bab11d46fed4476ce94196".to_string(),
+            "98accee0abe3a5f21925ee48cd7b416b4fa0e4975770910c3b76080f4faa48d0".to_string(),
+            "e2b98de357e138652895953ae972d1ac997bc6524b3c17b3e064b8d048054a1a".to_string(),
+            "091f7d99a6262d675fb9e2e0d6a9fe5edfdb5bef5d67fa0f10aa2898f06809f1".to_string(),
+            "5c6e11d3d89adb9fc6753c15098fcd4b4818569979e057f51b5a3fd8beabd194".to_string(),
+            "2529b265927d4abf94dcc7381d2e436b200f2abba89fa04537164133df51ae16".to_string(),
+        ];
     }
 
     fn hash(data: i32) -> HashValue {
