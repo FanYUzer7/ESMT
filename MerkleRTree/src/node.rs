@@ -695,7 +695,7 @@ mod test {
         }
         let mut tree = Tree::<usize, 2, 3>::new();
         for (idx, (node_hash, expected_root_hash)) in hashes.into_iter().zip(root_hashes.into_iter()).enumerate() {
-            tree.insert("test".to_string(), points[idx].clone(), node_hash);
+            tree.insert(format!("test-{}", idx), points[idx].clone(), node_hash);
             assert_eq!(expected_root_hash, tree.root_hash().unwrap());
             println!("test-{} pass", idx);
         }
@@ -708,6 +708,13 @@ mod test {
             "5c6e11d3d89adb9fc6753c15098fcd4b4818569979e057f51b5a3fd8beabd194".to_string(),
             "2529b265927d4abf94dcc7381d2e436b200f2abba89fa04537164133df51ae16".to_string(),
         ];
+
+        for (i, expect_root_hash_str) in delete_hash.into_iter().enumerate() {
+            tree.delete(&format!("test-{}",i), &Rect::<usize, 2>::new_point(points[i].clone()));
+            let expected_hash = HashValue::from_slice(&hex::decode(expect_root_hash_str).unwrap()).unwrap();
+            assert_eq!(expected_hash, tree.root_hash().unwrap());
+            println!("test-del-{} pass", i);
+        }
     }
 
     fn hash(data: i32) -> HashValue {
