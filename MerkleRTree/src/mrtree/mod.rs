@@ -1,6 +1,86 @@
-use types::hash_value::HashValue;
-use crate::node::{ESMTEntry, FromPrimitive, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
+use std::collections::BTreeSet;
+use types::hash_value::{ESMTHasher, HashValue};
+use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
+
+impl<V, const D: usize, const C: usize> Node<V, D, C>
+    where
+        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
+{
+    /// 插入，重新计算当前层的mbr以及下一层的hash
+    pub fn insert_by_mrt(&mut self, obj: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
+        if height == 0 {
+            if self.entry.is_empty() {
+                self.entry.push(obj);
+                self.recalculate_mbr();
+            } else {
+                self.mbr.expand(&loc);
+                self.entry.push(obj);
+            }
+        } else {
+            let subtree_idx = self.choose_subtree(&loc);
+            let node_mut = self.entry[subtree_idx].get_node_mut();
+            node_mut.insert_by_mrt(obj, loc, height - 1);
+            // need to split
+            if node_mut.entry.len() > Self::CAPACITY {
+                // 分裂并重新计算mbr
+                let new_node = node_mut.split_by_hilbert_sort();
+                self.mbr.expand(new_node.mbr());
+                self.entry.push(ESMTEntry::ENode(new_node));
+            } else {
+                node_mut.rehash();
+            }
+            self.mbr.expand(&loc);
+        }
+    }
+
+    /// 删除时会重新计算每一层的mbr以及hash；是否发生下溢由上一层进行判断
+    pub fn delete_by_mrt(&mut self,
+                         rect: &Rect<V, D>,
+                         key: &str,
+                         reinsert: &mut Vec<ESMTEntry<V, D, C>>,
+                         height: u32,
+    ) -> (Option<ESMTEntry<V, D, C>>, bool) {
+        if height == 0 {
+            for i in 0..self.entry.len() {
+                if self.entry[i].get_object().match_key(key) {
+                    let to_delete = self.entry.swap_remove(i);
+                    let recalced = self.mbr.on_edge(to_delete.mbr());
+                    if recalced {
+                        self.recalculate_mbr();
+                    }
+                    self.rehash();
+                    return (
+                        Some(to_delete),
+                        recalced
+                    );
+                }
+            }
+        } else {
+            for i in 0..self.entry.len() {
+                if !rect.intersects(self.entry[i].mbr()) {
+                    continue;
+                }
+                let node = self.entry[i].get_node_mut();
+                let (removed, mut recalced) = node.delete_by_mrt(rect, key, reinsert, height - 1);
+                if removed.is_none() {
+                    continue;
+                }
+                if node.entry.len() < Self::MIN_FANOUT {
+                    reinsert.extend(node.entry.drain(..));
+                    let underflow_node = self.entry.swap_remove(i);
+                    recalced = self.mbr.on_edge(underflow_node.mbr());
+                }
+                if recalced {
+                    self.recalculate_mbr();
+                }
+                self.rehash();
+                return (removed, recalced);
+            }
+        }
+        (None, false)
+    }
+}
 
 pub struct MerkleRTree<V, const D: usize, const C: usize>
     where
@@ -47,7 +127,7 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
 
     fn insert_impl(&mut self, entry: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
         let root = self.root.as_mut().unwrap();
-        root.insert(entry, loc, height);
+        root.insert_by_mrt(entry, loc, height);
         if root.is_overflow() {
             self.height += 1;
             let mut new_root = Node::new_with_height(self.height);
@@ -63,10 +143,11 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
         self.len += 1;
     }
 
-    pub fn delete(&mut self, key: &str, rect: &Rect<V, D>) -> Option<ObjectEntry<V, D>> {
+    pub fn delete(&mut self, key: &str, rect: &[V;D]) -> Option<ObjectEntry<V, D>> {
         if let Some(root) = &mut self.root {
+            let oloc = Rect::new_point(rect.clone());
             let mut reinsert = Vec::new();
-            let (removed, _) = root.delete(rect, key, &mut reinsert, self.height);
+            let (removed, _) = root.delete_by_mrt(&oloc, key, &mut reinsert, self.height);
             if removed.is_none() {
                 return None;
             }
@@ -91,6 +172,18 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
             removed.map(|entry| entry.unpack_object())
         } else {
             None
+        }
+    }
+
+    pub fn update_loc(&mut self, key:&str, oloc: &[V; D], nloc: [V; D]) {
+        let old = self.delete(key, oloc);
+        if old.is_none() {
+            println!("obj {} not exist. loc: {:?}", key, oloc);
+        } else {
+            let mut obj = old.unwrap();
+            let new_loc = Rect::new_point(nloc);
+            obj.update_loc(new_loc.clone());
+            self.insert_impl(ESMTEntry::Object(obj), &new_loc, self.height);
         }
     }
 
@@ -243,7 +336,7 @@ mod test {
         ];
 
         for (i, expect_root_hash_str) in delete_hash.into_iter().enumerate() {
-            tree.delete(&format!("test-{}",i), &Rect::<usize, 2>::new_point(points[i].clone()));
+            tree.delete(&format!("test-{}",i), &points[i].clone());
             let expected_hash = HashValue::from_slice(&hex::decode(expect_root_hash_str).unwrap()).unwrap();
             assert_eq!(expected_hash, tree.root_hash().unwrap());
             println!("test-del-{} pass", i);

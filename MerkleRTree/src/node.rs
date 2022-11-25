@@ -298,13 +298,34 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
     pub fn mbr(&self) -> &Rect<V, D> {
         &self.mbr
     }
+
+    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<Rect<V, D>>) {
+        let mut res = vec![];
+        let mut objs = vec![];
+        let mut queue = VecDeque::new();
+        queue.push_back(self);
+        while !queue.is_empty() {
+            let node = queue.pop_front().unwrap();
+            res.push((node.height, node.mbr.clone()));
+            if !(node.height == 0) {
+                for entry in node.entry.iter() {
+                    queue.push_back(entry.get_node());
+                }
+            } else {
+                for entry in node.entry.iter() {
+                    objs.push(entry.mbr().clone())
+                }
+            }
+        }
+        (res, objs)
+    }
 }
 
 impl<V, const D: usize, const C: usize> Node<V, D, C>
     where
         V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
 {
-    fn choose_least_enlargement(&self, rect: &Rect<V, D>) -> usize {
+    pub fn choose_least_enlargement(&self, rect: &Rect<V, D>) -> usize {
         if D == 0 {
             return 0_usize;
         }
@@ -325,7 +346,7 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         candidate_node_idx
     }
 
-    fn choose_subtree(&self, rect: &Rect<V, D>) -> usize {
+    pub(crate) fn choose_subtree(&self, rect: &Rect<V, D>) -> usize {
         if D == 0 {
             return 0;
         }
@@ -347,33 +368,6 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
             subtree_idx = self.choose_least_enlargement(rect);
         }
         subtree_idx
-    }
-
-    /// 插入，重新计算当前层的mbr以及下一层的hash
-    pub fn insert(&mut self, obj: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
-        if height == 0 {
-            if self.entry.is_empty() {
-                self.entry.push(obj);
-                self.recalculate_mbr();
-            } else {
-                self.mbr.expand(&loc);
-                self.entry.push(obj);
-            }
-        } else {
-            let subtree_idx = self.choose_subtree(&loc);
-            let node_mut = self.entry[subtree_idx].get_node_mut();
-            node_mut.insert(obj, loc, height - 1);
-            // need to split
-            if node_mut.entry.len() > Self::CAPACITY {
-                // 分裂并重新计算mbr
-                let new_node = node_mut.split_by_hilbert_sort();
-                self.mbr.expand(new_node.mbr());
-                self.entry.push(ESMTEntry::ENode(new_node));
-            } else {
-                node_mut.rehash();
-            }
-            self.mbr.expand(&loc);
-        }
     }
 
     pub fn split_by_hilbert_sort(&mut self) -> Node<V, D, C> {
@@ -420,74 +414,6 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
             });
         self.hash = hasher.finish();
         self.mbr = mbr;
-    }
-
-    /// 删除时会重新计算每一层的mbr以及hash；是否发生下溢由上一层进行判断
-    pub fn delete(&mut self, 
-        rect: &Rect<V, D>,
-        key: &str, 
-        reinsert: &mut Vec<ESMTEntry<V, D, C>>,
-        height: u32,
-    ) -> (Option<ESMTEntry<V, D, C>>, bool) {
-        if height == 0 {
-            for i in 0..self.entry.len() {
-                if self.entry[i].get_object().match_key(key) {
-                    let to_delete = self.entry.swap_remove(i);
-                    let recalced = self.mbr.on_edge(to_delete.mbr());
-                    if recalced {
-                        self.recalculate_mbr();
-                    }
-                    self.rehash();
-                    return (
-                        Some(to_delete),
-                        recalced
-                    );
-                }
-            }
-        } else {
-            for i in 0..self.entry.len() {
-                if !rect.intersects(self.entry[i].mbr()) {
-                    continue;
-                }
-                let node = self.entry[i].get_node_mut();
-                let (removed, mut recalced) = node.delete(rect, key, reinsert, height - 1);
-                if removed.is_none() {
-                    continue;
-                }
-                if node.entry.len() < Self::MIN_FANOUT {
-                    reinsert.extend(node.entry.drain(..));
-                    let underflow_node = self.entry.swap_remove(i);
-                    recalced = self.mbr.on_edge(underflow_node.mbr());
-                }
-                if recalced {
-                    self.recalculate_mbr();
-                }
-                self.rehash();
-                return (removed, recalced);
-            }
-        }
-        (None, false)
-    }
-
-    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<Rect<V, D>>) {
-        let mut res = vec![];
-        let mut objs = vec![];
-        let mut queue = VecDeque::new();
-        queue.push_back(self);
-        while !queue.is_empty() {
-            let node = queue.pop_front().unwrap();
-            res.push((node.height, node.mbr.clone()));
-            if !(node.height == 0) {
-                for entry in node.entry.iter() {
-                    queue.push_back(entry.get_node());
-                }
-            } else {
-                for entry in node.entry.iter() {
-                    objs.push(entry.mbr().clone())
-                }
-            }
-        }
-        (res, objs)
     }
 }
 
