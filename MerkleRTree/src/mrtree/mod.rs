@@ -140,7 +140,7 @@ mod test {
     use crate::shape::Rect;
     use rand::{thread_rng, Rng};
     use types::hash_value::{ESMTHasher, HashValue};
-    use crate::node::{ESMTEntry, HilbertSorter, Integer, ObjectEntry, UnsignedInteger};
+    use crate::node::{ESMTEntry, HilbertSorter, Integer, Node, ObjectEntry, UnsignedInteger};
     use crate::mrtree::MerkleRTree as Tree;
 
     #[test]
@@ -262,5 +262,9 @@ mod test {
                 h.update(hash.as_ref())
             });
         hasher.finish()
+    }
+
+    fn foo() {
+        Node::foo()
     }
 }

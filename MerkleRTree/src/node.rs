@@ -5,12 +5,10 @@ use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
 pub trait FromPrimitive: Sized {
-    #[inline]
     fn from_i32(i: i32) -> Self;
 }
 
 pub trait  ToPrimitive: Sized {
-    #[inline]
     fn to_usize(self) -> usize;
 }
 
