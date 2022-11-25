@@ -11,8 +11,8 @@ use std::ops::{Add, Div, Mul, Sub};
 /// ```
 #[derive(Debug, Clone)]
 pub struct Rect<V, const D: usize>
-where
-    V: Default + Debug + Copy,
+    where
+        V: Default + Debug + Copy,
 {
     pub _max: [V; D],
     pub _min: [V; D],

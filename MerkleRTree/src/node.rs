@@ -1,13 +1,83 @@
 use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Debug;
+use std::ops::{Add, Div, Mul, Sub};
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
-pub type ValueSpace = usize;
+pub trait FromPrimitive: Sized {
+    #[inline]
+    fn from_i32(i: i32) -> Self;
+}
+
+pub trait  ToPrimitive: Sized {
+    #[inline]
+    fn to_usize(self) -> usize;
+}
+
+pub trait MRTreeDefault: Default + Debug + Copy {}
+pub trait MRTreeFunc:
+PartialOrd + Sub<Output = Self> + Add<Output = Self> + Mul<Output = Self> + Div<Output = Self> + Sized {
+}
+
+impl FromPrimitive for usize {
+    #[inline]
+    fn from_i32(i: i32) -> Self {
+        i as usize
+    }
+}
+
+impl ToPrimitive for usize {
+    #[inline]
+    fn to_usize(self) -> usize {
+        self
+    }
+}
+
+impl MRTreeDefault for usize {}
+impl MRTreeFunc for usize {}
+
+impl FromPrimitive for f32 {
+    #[inline]
+    fn from_i32(i: i32) -> Self {
+        i as f32
+    }
+}
+
+impl ToPrimitive for f32 {
+    #[inline]
+    fn to_usize(self) -> usize {
+        self as usize
+    }
+}
+
+impl MRTreeDefault for f32{}
+impl MRTreeFunc for f32{}
+
+impl FromPrimitive for i32 {
+    #[inline]
+    fn from_i32(i: i32) -> Self {
+        i
+    }
+}
+
+impl ToPrimitive for i32 {
+    #[inline]
+    fn to_usize(self) -> usize {
+        self as usize
+    }
+}
+
+impl MRTreeDefault for i32{}
+impl MRTreeFunc for i32{}
+
+pub type Float = f32;
+pub type UnsignedInteger = usize;
+pub type Integer = i32;
+
 /// `ObjectEntry`表示`ESMT`中的一个空间对象，只存在于叶子节点中。
 pub struct ObjectEntry<V, const D: usize>
     where
-        V: Default + Debug + Copy,
+        V: MRTreeDefault,
 {
     /// key: 空间对象在区块链数据库中的索引键值，如账户。
     key: String,
@@ -21,24 +91,27 @@ pub struct ObjectEntry<V, const D: usize>
 
 pub struct Node<V, const D: usize, const C: usize>
     where
-        V: Default + Debug + Copy,
+        V: MRTreeDefault,
 {
-    height: u32,
-    mbr: Rect<V, D>,
-    hash: HashValue,
-    entry: Vec<ESMTEntry<V, D, C>>,
+    pub height: u32,
+    pub mbr: Rect<V, D>,
+    pub hash: HashValue,
+    pub entry: Vec<ESMTEntry<V, D, C>>,
 }
 
 pub enum ESMTEntry<V, const D: usize, const C: usize>
     where
-        V: Default + Debug + Copy,
+        V: MRTreeDefault,
 {
     ENode(Node<V, D, C>),
     Object(ObjectEntry<V, D>)
 }
 
-impl<const D: usize> ObjectEntry<ValueSpace, D> {
-    pub fn new(key: String, loc: [ValueSpace; D], hash: HashValue) -> Self {
+impl<V, const D: usize> ObjectEntry<V, D>
+    where
+        V: MRTreeDefault,
+{
+    pub fn new(key: String, loc: [V; D], hash: HashValue) -> Self {
         Self {
             key,
             loc: Rect::new_point(loc),
@@ -55,7 +128,7 @@ impl<const D: usize> ObjectEntry<ValueSpace, D> {
         self.hash.as_ref()
     }
 
-    pub fn loc(&self) -> &Rect<ValueSpace, D> {
+    pub fn loc(&self) -> &Rect<V, D> {
         &self.loc
     }
 
@@ -63,7 +136,7 @@ impl<const D: usize> ObjectEntry<ValueSpace, D> {
         self.stale
     }
 
-    pub fn update_loc(&mut self, new_loc: Rect<ValueSpace, D>) {
+    pub fn update_loc(&mut self, new_loc: Rect<V, D>) {
         self.loc = new_loc;
     }
 
@@ -77,7 +150,10 @@ impl<const D: usize> ObjectEntry<ValueSpace, D> {
 }
 
 // todo: 返回Result，进行错误处理
-impl<const D: usize, const C: usize> ESMTEntry<ValueSpace, D, C> {
+impl<V, const D: usize, const C: usize> ESMTEntry<V, D, C>
+    where
+        V: MRTreeDefault,
+{
     pub fn is_node(&self) -> bool {
         if let Self::ENode(_) = self {
             return true;
@@ -114,7 +190,7 @@ impl<const D: usize, const C: usize> ESMTEntry<ValueSpace, D, C> {
         }
     }
 
-    pub fn mbr(&self) -> &Rect<ValueSpace, D> {
+    pub fn mbr(&self) -> &Rect<V, D> {
         match self {
             ESMTEntry::ENode(n) => {
                 n.mbr()
@@ -125,42 +201,42 @@ impl<const D: usize, const C: usize> ESMTEntry<ValueSpace, D, C> {
         }
     }
 
-    pub fn unpack_node(self) -> Node<ValueSpace, D, C> {
+    pub fn unpack_node(self) -> Node<V, D, C> {
         if let Self::ENode(n) = self {
             return n;
         }
         panic!("[ESMTEntry] expect reference of Node, find ObjectEntry");
     }
 
-    pub fn unpack_object(self) -> ObjectEntry<ValueSpace, D> {
+    pub fn unpack_object(self) -> ObjectEntry<V, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_node(&self) -> &Node<ValueSpace, D, C> {
+    pub fn get_node(&self) -> &Node<V, D, C> {
         if let Self::ENode(n) = self {
             return n;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_node_mut(&mut self) -> &mut Node<ValueSpace, D, C> {
+    pub fn get_node_mut(&mut self) -> &mut Node<V, D, C> {
         if let Self::ENode(n) = self {
             return n;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_object(&self) -> &ObjectEntry<ValueSpace, D> {
+    pub fn get_object(&self) -> &ObjectEntry<V, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
         panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
     }
 
-    pub fn get_object_mut(&mut self) -> &mut ObjectEntry<ValueSpace, D> {
+    pub fn get_object_mut(&mut self) -> &mut ObjectEntry<V, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
@@ -168,9 +244,13 @@ impl<const D: usize, const C: usize> ESMTEntry<ValueSpace, D, C> {
     }
 }
 
-impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
+impl<V, const D: usize, const C: usize> Node<V, D, C>
+    where
+        V: MRTreeDefault,
+{
     pub const CAPACITY: usize = C;
     pub const MIN_FANOUT: usize = (Self::CAPACITY + 1) >> 1;
+
     pub fn new() -> Self {
         Self {
             height: 0,
@@ -205,7 +285,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         self.entry.len() < Self::MIN_FANOUT
     }
 
-    fn rehash(&mut self) {
+    pub fn rehash(&mut self) {
         let hash_set = self.entry.iter()
             .map(|e| e.hash_ref())
             .collect::<BTreeSet<_>>();
@@ -217,11 +297,16 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         self.hash = hasher.finish();
     }
 
-    pub fn mbr(&self) -> &Rect<ValueSpace, D> {
+    pub fn mbr(&self) -> &Rect<V, D> {
         &self.mbr
     }
+}
 
-    fn choose_least_enlargement(&self, rect: &Rect<ValueSpace, D>) -> usize {
+impl<V, const D: usize, const C: usize> Node<V, D, C>
+    where
+        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
+{
+    fn choose_least_enlargement(&self, rect: &Rect<V, D>) -> usize {
         if D == 0 {
             return 0_usize;
         }
@@ -242,7 +327,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         candidate_node_idx
     }
 
-    fn choose_subtree(&self, rect: &Rect<ValueSpace, D>) -> usize {
+    fn choose_subtree(&self, rect: &Rect<V, D>) -> usize {
         if D == 0 {
             return 0;
         }
@@ -267,7 +352,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
     }
 
     /// 插入，重新计算当前层的mbr以及下一层的hash
-    pub fn insert(&mut self, obj: ESMTEntry<ValueSpace, D, C>, loc: &Rect<ValueSpace, D>, height: u32) {
+    pub fn insert(&mut self, obj: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
         if height == 0 {
             if self.entry.is_empty() {
                 self.entry.push(obj);
@@ -293,7 +378,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         }
     }
 
-    fn split_by_hilbert_sort(&mut self) -> Node<ValueSpace, D, C> {
+    pub fn split_by_hilbert_sort(&mut self) -> Node<V, D, C> {
         let mut new_node = Self::new_with_height(self.height);
         let areas = self.entry.drain(..).collect::<Vec<_>>();
         let hilbert_sorter = HilbertSorter::new(&self.mbr);
@@ -308,7 +393,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         new_node
     }
 
-    fn recalculate_mbr(&mut self) {
+    pub fn recalculate_mbr(&mut self) {
         if self.entry.is_empty() {
             return;
         }
@@ -320,7 +405,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
     }
 
     /// 重新计算哈希和mbr
-    fn recalculate_state_after_sort(&mut self) {
+    pub fn recalculate_state_after_sort(&mut self) {
         if self.entry.is_empty() {
             return;
         }
@@ -341,11 +426,11 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
 
     /// 删除时会重新计算每一层的mbr以及hash；是否发生下溢由上一层进行判断
     pub fn delete(&mut self, 
-        rect: &Rect<ValueSpace, D>, 
+        rect: &Rect<V, D>,
         key: &str, 
-        reinsert: &mut Vec<ESMTEntry<ValueSpace, D, C>>,
+        reinsert: &mut Vec<ESMTEntry<V, D, C>>,
         height: u32,
-    ) -> (Option<ESMTEntry<ValueSpace, D, C>>, bool) {
+    ) -> (Option<ESMTEntry<V, D, C>>, bool) {
         if height == 0 {
             for i in 0..self.entry.len() {
                 if self.entry[i].get_object().match_key(key) {
@@ -386,7 +471,7 @@ impl<const D: usize, const C: usize> Node<ValueSpace, D, C> {
         (None, false)
     }
 
-    pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {
+    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<Rect<V, D>>) {
         let mut res = vec![];
         let mut objs = vec![];
         let mut queue = VecDeque::new();
@@ -419,14 +504,20 @@ const _HILBERT3: [u8;64] = [
     21,22,25,26,37,38,41,42u8,
 ];
 
-pub struct HilbertSorter<const D: usize, const C: usize> {
-    lowbound: [ValueSpace; D],
-    range: [ValueSpace; D],
+pub struct HilbertSorter<V, const D: usize, const C: usize>
+    where
+        V: MRTreeDefault,
+{
+    lowbound: [V; D],
+    range: [V; D],
 }
 
-impl<const D: usize, const C: usize> HilbertSorter<D, C> {
-    pub fn new(area: &Rect<ValueSpace, D>) -> Self {
-        let mut range = [ValueSpace::default(); D];
+impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
+    where
+        V: MRTreeDefault + MRTreeFunc + FromPrimitive + ToPrimitive,
+{
+    pub fn new(area: &Rect<V, D>) -> Self {
+        let mut range = [V::default(); D];
         for i in 0..D {
             range[i] = area._max[i] - area._min[i];
         }
@@ -436,18 +527,18 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
         }
     }
 
-    pub fn hilbert_idx(&self, obj: &Rect<ValueSpace, D>) -> u8 {
+    pub fn hilbert_idx(&self, obj: &Rect<V, D>) -> u8 {
         assert_eq!(D, 2, "only support 2-D now!");
-        let obj_c = center(obj);
-        let mut x = (((obj_c[0] - self.lowbound[0]) * 8 as ValueSpace) / self.range[0]) as usize;
-        let mut y = (((obj_c[1] - self.lowbound[1]) * 8 as ValueSpace) / self.range[1]) as usize;
+        let obj_c = Self::center(obj);
+        let mut x = (((obj_c[0] - self.lowbound[0]) * (V::from_i32(8))) / self.range[0]).to_usize();
+        let mut y = (((obj_c[1] - self.lowbound[1]) * (V::from_i32(8))) / self.range[1]).to_usize();
         x = x - (x >> 3);
         y = y - (y >> 3);
         let idx = (y << 3) | x;
         _HILBERT3[idx]
     }
 
-    pub fn sort(&self, v: Vec<ESMTEntry<ValueSpace, D, C>>) -> Vec<ESMTEntry<ValueSpace, D, C>> {
+    pub fn sort(&self, v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
         // calculate hilebert index
         let mut indexed = v.into_iter()
             .map(|e| (self.hilbert_idx(e.mbr()), e))
@@ -462,272 +553,12 @@ impl<const D: usize, const C: usize> HilbertSorter<D, C> {
             })
             .collect()
     }
-}
 
-fn center<const D: usize>(rect: &Rect<ValueSpace, D>) -> [ValueSpace; D] {
-    let mut c = [ValueSpace::default(); D];
-    for i in 0..D {
-        c[i] = (rect._max[i] + rect._min[i]) / (2 as ValueSpace);
-    }
-    c
-}
-
-pub struct MerkleRTree<V, const D: usize, const C: usize>
-    where
-        V: Default + Debug + Copy,
-{
-    root: Option<Node<V, D, C>>,
-    height: u32,
-    len: usize,
-}
-
-impl<const D: usize, const C: usize> MerkleRTree<ValueSpace, D, C> {
-    pub fn new() -> Self {
-        Self {
-            root: None,
-            height: 0,
-            len: 0,
+    fn center(rect: &Rect<V, D>) -> [V; D] {
+        let mut c = [V::default(); D];
+        for i in 0..D {
+            c[i] = (rect._max[i] + rect._min[i]) / (V::from_i32(2));
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn area(&self) -> Option<Rect<ValueSpace, D>> {
-        match &self.root {
-            None => { None }
-            Some(root) => {
-                Some(root.mbr().clone())
-            }
-        }
-    }
-
-    pub fn insert(&mut self, key: String, loc:[ValueSpace; D], hash: HashValue) {
-        if self.root.is_none() {
-            self.root = Some(Node::new_with_height(0));
-        }
-        let obj = ESMTEntry::Object(ObjectEntry::new(key, loc, hash));
-        let obj_loc = obj.mbr().clone();
-        self.insert_impl(obj, &obj_loc, self.height);
-    }
-
-    fn insert_impl(&mut self, entry: ESMTEntry<ValueSpace, D, C>, loc: &Rect<ValueSpace, D>, height: u32) {
-        let root = self.root.as_mut().unwrap();
-        root.insert(entry, loc, height);
-        if root.is_overflow() {
-            self.height += 1;
-            let mut new_root = Node::new_with_height(self.height);
-            let another = root.split_by_hilbert_sort();
-            let origin = self.root.take().unwrap();
-            new_root.entry.push(ESMTEntry::ENode(origin));
-            new_root.entry.push(ESMTEntry::ENode(another));
-            new_root.recalculate_state_after_sort();
-            self.root = Some(new_root);
-        } else {
-            root.rehash();
-        }
-        self.len += 1;
-    }
-
-    pub fn delete(&mut self, key: &str, rect: &Rect<ValueSpace, D>) -> Option<ObjectEntry<ValueSpace, D>> {
-        if let Some(root) = &mut self.root {
-            let mut reinsert = Vec::new();
-            let (removed, recalced) = root.delete(rect, key, &mut reinsert, self.height);
-            if removed.is_none() {
-                return None;
-            }
-            self.len -= 1;
-            if self.height == 0 {
-                if self.len == 0 {
-                    self.root = None;
-                }
-            } else {
-                if root.entry.len() == 1 {
-                    println!("root downcast. original height: {}", self.height);
-                    let new_root = root.entry.pop().unwrap().unpack_node();
-                    self.height = new_root.height;
-                    self.root = Some(new_root);
-                }              
-            }
-            // reinsert
-            if !reinsert.is_empty() {
-                println!("need re-insert");
-                self.reinsert(reinsert);
-            }
-            removed.map(|entry| entry.unpack_object())
-        } else {
-            None
-        }
-    }
-
-    fn reinsert(&mut self, reinsert_list: Vec<ESMTEntry<ValueSpace, D, C>>) {
-        for entry in reinsert_list.into_iter().rev() {
-            // println!("start reinsert. Current height: {}", self.height);
-            let entry_loc = entry.mbr().clone();
-            let expected_height_to_insert = if entry.is_node() {
-                // println!("re-insert node");
-                self.height - entry.get_node().height - 1
-            } else {
-                // println!("re-insert object");
-                self.height
-            };
-            self.insert_impl(entry, &entry_loc, expected_height_to_insert);
-        }
-    }
-
-    pub fn display(&self) -> (Vec<(u32, Rect<ValueSpace, D>)>, Vec<Rect<ValueSpace, D>>) {
-        match &self.root {
-            None => {
-                (vec![], vec![])
-            }
-            Some(root) => {
-                root.display()
-            }
-        }
-    }
-
-    pub fn root_hash(&self) -> Option<HashValue> {
-        match &self.root {
-            None => {
-                None
-            }
-            Some(root) => {
-                Some(root.hash())
-            }
-        }
-    }
-}
-
-
-#[cfg(test)]
-mod test {
-    use std::collections::BTreeSet;
-    use std::time::Instant;
-    use crate::shape::Rect;
-    use rand::{thread_rng, Rng};
-    use types::hash_value::{ESMTHasher, HashValue};
-    use crate::node::{ESMTEntry, HilbertSorter, ObjectEntry, ValueSpace};
-    use crate::node::MerkleRTree as Tree;
-
-    #[test]
-    fn test_efficient() {
-        let mut time = 0;
-        for _ in 0..100 {
-            let mut v = generate_random_rect();
-            let sorter = HilbertSorter::<2, 40>::new(&Rect::new([0, 0], [100, 100]));
-            let start = Instant::now();
-            let _sorted_v = {
-                v.sort_by(|a, b| {
-                    let a_idx = sorter.hilbert_idx(a.mbr());
-                    let b_idx = sorter.hilbert_idx(b.mbr());
-                    a_idx.cmp(&b_idx)
-                });
-                v
-            };
-            time += start.elapsed().as_micros();
-        }
-        println!("sort by func avg time = {}us", time / 100); //2200us
-
-        time = 0;
-        let mut time_p = 0;
-        for _ in 0..100 {
-            let v = generate_random_rect();
-            let sorter = HilbertSorter::<2, 40>::new(&Rect::new([0, 0], [100, 100]));
-            let start = Instant::now();
-            let mut sorted_v = {
-                let mut m = v.into_iter().map(|e| (sorter.hilbert_idx(e.mbr()), e)).collect::<Vec<_>>();
-                m.sort_by(|a,b| a.0.cmp(&b.0));
-                m.into_iter().map(|(_,e)| e).collect::<Vec<_>>()
-            };
-            time += start.elapsed().as_micros();
-            sorted_v.pop();
-            time_p += start.elapsed().as_micros();
-        }
-        println!("pack iter & unpack avg time = {}us", time / 100);
-        println!("pack iter & unpack avg time = {}us", time_p / 100); //550us
-    }
-
-    fn generate_random_rect() -> Vec<ESMTEntry<ValueSpace, 2, 40>> {
-        let mut rng = thread_rng();
-        let mut v = vec![];
-        for _ in 0..1000 {
-            let p = rng.gen_range(0..100);
-            v.push(ESMTEntry::Object(ObjectEntry::new("key".to_string(), [p, p], HashValue::zero())));
-        }
-        v
-    }
-
-    #[test]
-    fn test_root_hash() {
-        // let mut rng = thread_rng();
-        let points = vec![
-            [1usize, 8],
-            [3, 9],
-            [3, 6],
-            [9, 2],
-            [2, 7],
-            [7, 1],
-            [3, 1],
-            [5, 8],
-        ];
-        let mut hashes = vec![];
-        for i in 0..8 {
-            hashes.push(hash(i));
-        }
-        let mut root_hashes = vec![];
-        let mut node_set = BTreeSet::new();
-        // 插入0，1，2
-        for i in 0..3usize {
-            node_set.insert(hashes[i]);
-            root_hashes.push(calc_hash(&node_set));
-        }
-        let h = vec![
-            "0bd13fbae340f13bc8580b2d777c5393652a2e4fce220bb618b156b8cf97b90f".to_string(),
-            "7b5b68e400187a7c07f1af2043315dee22517f0919cfd1df1b21a319b0bb04e4".to_string(),
-            "902d1aaa9fdedf73a5cb2e289a941d7baed0db1263581e50e09643494c0b917d".to_string(),
-            "106175f02bfa4344275457c2da1d9b4cc2d3016a4fd4fc73492a894bbaa2b8aa".to_string(),
-            "c9d49706741c3453968f696ff6324e21b7078fcf6171546fa8bad7ef32821593".to_string(),
-        ];
-        for s in h {
-            let bytes = hex::decode(s).unwrap();
-            root_hashes.push(HashValue::from_slice(&bytes).unwrap());
-        }
-        let mut tree = Tree::<usize, 2, 3>::new();
-        for (idx, (node_hash, expected_root_hash)) in hashes.into_iter().zip(root_hashes.into_iter()).enumerate() {
-            tree.insert(format!("test-{}", idx), points[idx].clone(), node_hash);
-            assert_eq!(expected_root_hash, tree.root_hash().unwrap());
-            println!("test-{} pass", idx);
-        }
-        let delete_hash = vec![
-            "58296e1fbd0b2e93fde939693fa3d0252003bf97c80a46dabc50f0de1c894e33".to_string(),
-            "67a4b78b7ff4ec7ad62ce52e1bf3d8936d689733d3bab11d46fed4476ce94196".to_string(),
-            "98accee0abe3a5f21925ee48cd7b416b4fa0e4975770910c3b76080f4faa48d0".to_string(),
-            "e2b98de357e138652895953ae972d1ac997bc6524b3c17b3e064b8d048054a1a".to_string(),
-            "091f7d99a6262d675fb9e2e0d6a9fe5edfdb5bef5d67fa0f10aa2898f06809f1".to_string(),
-            "5c6e11d3d89adb9fc6753c15098fcd4b4818569979e057f51b5a3fd8beabd194".to_string(),
-            "2529b265927d4abf94dcc7381d2e436b200f2abba89fa04537164133df51ae16".to_string(),
-        ];
-
-        for (i, expect_root_hash_str) in delete_hash.into_iter().enumerate() {
-            tree.delete(&format!("test-{}",i), &Rect::<usize, 2>::new_point(points[i].clone()));
-            let expected_hash = HashValue::from_slice(&hex::decode(expect_root_hash_str).unwrap()).unwrap();
-            assert_eq!(expected_hash, tree.root_hash().unwrap());
-            println!("test-del-{} pass", i);
-        }
-    }
-
-    fn hash(data: i32) -> HashValue {
-        let bytes = data.to_le_bytes();
-        let hasher = ESMTHasher::default();
-        hasher.update(&bytes).finish()
-    }
-
-    fn calc_hash(set: &BTreeSet<HashValue>) -> HashValue {
-        let hasher = set.iter()
-            .fold(ESMTHasher::default(), |h, hash| {
-                h.update(hash.as_ref())
-            });
-        hasher.finish()
+        c
     }
 }

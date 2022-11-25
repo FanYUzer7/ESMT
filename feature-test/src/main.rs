@@ -3,8 +3,9 @@ use std::env;
 use std::str::FromStr;
 use rand::{Rng, thread_rng};
 use types::hash_value::{ESMTHasher, HashValue};
-use MerkleRTree::node::{MerkleRTree as Tree, HilbertSorter};
+use MerkleRTree::node::{HilbertSorter};
 use MerkleRTree::shape::Rect;
+use MerkleRTree::mrtree::MerkleRTree as Tree;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -34,7 +35,7 @@ fn main() {
         for i in range_set.iter() {
             range.expand(&Rect::<usize,2>::new_point(points[*i]));
         }
-        let sorter = HilbertSorter::<2, 3>::new(&range);
+        let sorter = HilbertSorter::<usize, 2, 3>::new(&range);
         for i in range_set {
             let hilbert_idx = sorter.hilbert_idx(&Rect::<usize, 2>::new_point(points[i]));
             println!("point [{}] hilbert idx = {}", i, hilbert_idx);
@@ -101,7 +102,7 @@ fn print_hilbert_idx() {
         [8, 2],
         [0, 4],
     ];
-    let hilbert_sorter = HilbertSorter::<2, 3>::new(&Rect::new([3usize, 1], [9usize, 9]));
+    let hilbert_sorter = HilbertSorter::<usize ,2, 3>::new(&Rect::new([3usize, 1], [9usize, 9]));
     for i in [1usize, 5, 3, 6] {
         println!("{}", hilbert_sorter.hilbert_idx(&Rect::new_point(points[i].clone())));
     }
