@@ -87,7 +87,7 @@ pub struct ObjectEntry<V, const D: usize>
     stale: bool,
 }
 
-pub struct Node<V, const D: usize, const C: usize>
+pub(crate) struct Node<V, const D: usize, const C: usize>
     where
         V: MRTreeDefault,
 {
@@ -97,7 +97,7 @@ pub struct Node<V, const D: usize, const C: usize>
     pub entry: Vec<ESMTEntry<V, D, C>>,
 }
 
-pub enum ESMTEntry<V, const D: usize, const C: usize>
+pub(crate) enum ESMTEntry<V, const D: usize, const C: usize>
     where
         V: MRTreeDefault,
 {
@@ -462,7 +462,7 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
         _HILBERT3[idx]
     }
 
-    pub fn sort(&self, v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
+    fn sort(&self, v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
         // calculate hilebert index
         let mut indexed = v.into_iter()
             .map(|e| (self.hilbert_idx(e.mbr()), e))

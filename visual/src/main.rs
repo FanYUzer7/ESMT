@@ -132,7 +132,7 @@ fn main() {
                         let y = rng.gen_range(-1.0f32..1.0f32);
                         println!("insert object: {:?}", [x, y]);
                         let key = format!("[{}, {}]", x, y);
-                        inserted_object.push((key.clone(), Rect::new_point([x,y])));
+                        inserted_object.push((key.clone(), [x,y]));
                         tree.insert(key, [x,y], HashValue::zero());
                         (nodes, objs) = tree.display();
                         modified = true;
@@ -145,7 +145,7 @@ fn main() {
                     } else if input.scancode == 32 && input.state == ElementState::Released {
                         let idx = rng.gen_range(0..inserted_object.len());
                         let (key, rect) = inserted_object.swap_remove(idx);
-                        println!("delete object: {:?}", rect._max);
+                        println!("delete object: {:?}", rect);
                         let _ = tree.delete(&key, &rect);
                         (nodes, objs) = tree.display();
                         modified = true;
