@@ -73,6 +73,7 @@ pub type UnsignedInteger = usize;
 pub type Integer = i32;
 
 /// `ObjectEntry`表示`ESMT`中的一个空间对象，只存在于叶子节点中。
+#[derive(Clone)]
 pub struct ObjectEntry<V, const D: usize>
     where
         V: MRTreeDefault,
@@ -297,6 +298,16 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
 
     pub fn mbr(&self) -> &Rect<V, D> {
         &self.mbr
+    }
+
+    pub fn first_stale(&self) -> Option<usize> {
+        assert_eq!(self.height, 0, "first_stale method can only be called on Leaf node");
+        for i in 0..self.entry.len() {
+            if self.entry[i].get_object().is_stale() {
+                return Some(i);
+            }
+        }
+        None
     }
 
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<Rect<V, D>>) {

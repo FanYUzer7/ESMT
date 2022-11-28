@@ -26,6 +26,7 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
         }
     }
 
+    /// 插入，重新计算当前层的mbr以及下一层的hash
     fn insert_by_mrt(node: &mut Node<V, D, C>, obj: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
         if height == 0 {
             if node.entry.is_empty() {
@@ -45,6 +46,7 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
                 // 分裂并重新计算mbr
                 let new_node = node_mut.split_by_hilbert_sort();
                 node.mbr.expand(new_node.mbr());
+                node.mbr.expand(node_mut.mbr());
                 node.entry.push(ESMTEntry::ENode(new_node));
             } else {
                 node_mut.rehash();
@@ -57,6 +59,7 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
         Self::insert_by_mrt(&mut self.node, obj, loc, height);
     }
 
+    /// 删除时会重新计算每一层的mbr以及hash；是否发生下溢由上一层进行判断
     fn delete_by_mrt(node: &mut Node<V, D, C>,
                      rect: &Rect<V, D>,
                      key: &str,
