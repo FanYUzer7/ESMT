@@ -1,3 +1,4 @@
+use types::hash_value::HashValue;
 use crate::node::{ESMTEntry, FromPrimitive, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
 
@@ -24,6 +25,16 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         }
     }
 
+    #[inline]
+    pub fn hash(&self) -> HashValue {
+        self.node.hash()
+    }
+
+    #[inline]
+    pub fn unpack_node(self) -> Node<V, D, C> {
+        self.node
+    }
+
     /// 插入，重新计算当前层的mbr以及下一层的hash
     fn insert_by_esmt(node: &mut Node<V, D, C>, obj: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
         if height == 0 {
@@ -48,7 +59,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
             } else {
                 node_mut.rehash();
             }
-            node.mbr.expand(&loc);
+            node.recalculate_mbr();
         }
     }
 
@@ -108,12 +119,13 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         Self::search_by_esmt(&mut self.node, rect, key, height, &func)
     }
 
+    /// 如果调用了insert方法，返回true
     pub fn update(&mut self,
                   oloc: &Rect<V, D>,
                   nloc: Rect<V, D>,
                   key: &str,
                   height: u32,
-    ) {
+    ) -> bool {
         let func =
             |node: &mut Node<V, D, C>, key: &str| -> Option<ESMTEntry<V, D, C>> {
                 for i in 0..node.entry.len() {
@@ -125,15 +137,20 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
                             node.entry[i].get_object_mut().delete();
                         }
                         let to_return = node.entry[i].get_object().clone();
-                        return Some(ESMTEntry::Object(to_delete));
+                        return Some(ESMTEntry::Object(to_return));
                     }
                 }
                 None
             };
-        let updated_obj = Self::search_by_esmt(&mut self.node, oloc, key, height, &func).unwrap();
+        let mut updated_obj = Self::search_by_esmt(&mut self.node, oloc, key, height, &func).unwrap();
         if updated_obj.get_object().is_stale() {
+            // 更新位置和stale重新插入
+            updated_obj.get_object_mut().update_loc(nloc.clone());
+            updated_obj.get_object_mut().refresh();
             self.insert(updated_obj, &nloc, height);
+            return true;
         }
+        false
     }
 
     fn search_by_esmt(node: &mut Node<V, D, C>,
@@ -143,7 +160,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
                       func: &dyn Fn(&mut Node<V, D, C>, &str) -> Option<ESMTEntry<V, D, C>>,
     ) -> Option<ESMTEntry<V, D, C>> {
         if height == 0 {
-            return func(node);
+            return func(node, key);
         } else {
             for i in 0..node.entry.len() {
                 if !rect.intersects(node.entry[i].mbr()) {
@@ -161,3 +178,130 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         None
     }
 }
+
+pub struct PartionTree<V, const D: usize, const C: usize> 
+    where
+        V: MRTreeDefault,
+{
+    root: Option<EfficientMRTreeNode<V, D, C>>,
+    area: Rect<V, D>,
+    height: u32,
+    len: usize,
+}
+
+impl<V, const D: usize, const C: usize> PartionTree<V, D, C> 
+    where
+        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
+{
+    pub fn new() -> Self {
+        Self {
+            root: None,
+            area: Rect::default(),
+            height: 0,
+            len: 0
+        }
+    }
+
+    pub fn new_with_area(area: Rect<V, D>) -> Self {
+        Self {
+            root: None,
+            area,
+            height: 0,
+            len: 0
+        }
+    }
+
+    #[inline]
+    pub fn area(&self) -> Rect<V, D> {
+        self.area.clone()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn root_hash(&self) -> Option<HashValue> {
+        match &self.root {
+            None => { None }
+            Some(r) => { Some(r.hash()) }
+        }
+    }
+
+    pub fn insert(&mut self, key: String, loc:[V; D], hash: HashValue) {
+        if self.root.is_none() {
+            self.root = Some(EfficientMRTreeNode::new_with_height(0));
+        }
+        let obj = ESMTEntry::Object(ObjectEntry::new(key, loc, hash));
+        let obj_loc = obj.mbr().clone();
+        self.insert_impl(obj, &obj_loc, self.height);
+    }
+
+    fn insert_impl(&mut self, entry: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
+        let root = self.root.as_mut().unwrap();
+        root.insert(entry, loc, height);
+        let need_split = root.node.is_overflow();
+        if need_split {
+            self.height += 1;
+            let mut new_root = Node::new_with_height(self.height);
+            let mut origin = self.root.take().unwrap().unpack_node();
+            let another = origin.split_by_hilbert_sort();
+            new_root.entry.push(ESMTEntry::ENode(origin));
+            new_root.entry.push(ESMTEntry::ENode(another));
+            new_root.recalculate_state_after_sort();
+            self.root = Some(EfficientMRTreeNode::new(new_root));
+        } else {
+            root.node.rehash()
+        }
+        self.len += 1;
+    }
+
+    pub fn delete(&mut self, key: &str, rect: &[V;D]) -> Option<ObjectEntry<V, D>> {
+        if let Some(root) = &mut self.root {
+            let loc = Rect::new_point(rect.clone());
+            let entry = root.delete(&loc, key, self.height);
+            if entry.is_none() {
+                return None;
+            }
+            self.len -= 1;
+            entry.map(|e| e.unpack_object())
+        } else {
+            None
+        }
+    }
+
+    pub fn update(&mut self, key: &str, oloc: &[V; D], nloc: [V; D]) {
+        if let Some(root) = &mut self.root {
+            let orect = Rect::new_point(oloc.clone());
+            let nrect = Rect::new_point(nloc);
+            let call_insert = root.update(&orect, nrect, key, self.height);
+            if call_insert {
+                let need_split = root.node.is_overflow();
+                if need_split {
+                    self.height += 1;
+                    let mut new_root = Node::new_with_height(self.height);
+                    let mut origin = self.root.take().unwrap().unpack_node();
+                    let another = origin.split_by_hilbert_sort();
+                    new_root.entry.push(ESMTEntry::ENode(origin));
+                    new_root.entry.push(ESMTEntry::ENode(another));
+                    new_root.recalculate_state_after_sort();
+                    self.root = Some(EfficientMRTreeNode::new(new_root));
+                } else {
+                    root.node.rehash()
+                }
+            }
+        }
+    }
+
+    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
+        match &self.root {
+            None => {
+                (vec![], vec![])
+            }
+            Some(root) => {
+                root.node.display()
+            }
+        }
+    }
+}
+

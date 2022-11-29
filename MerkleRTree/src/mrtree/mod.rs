@@ -117,6 +117,7 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
         Self::delete_by_mrt(&mut self.node, rect, key, reinsert, height)
     }
 
+    #[inline]
     pub fn unpack_node(self) -> Node<V, D, C> {
         self.node
     }
@@ -222,6 +223,7 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
         }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -322,7 +324,7 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
         }
     }
 
-    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<Rect<V, D>>) {
+    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         match &self.root {
             None => {
                 (vec![], vec![])

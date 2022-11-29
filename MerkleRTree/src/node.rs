@@ -119,30 +119,40 @@ impl<V, const D: usize> ObjectEntry<V, D>
         }
     }
 
+    #[inline]
     pub fn hash(&self) -> HashValue {
         self.hash
     }
 
+    #[inline]
     pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
         self.hash.as_ref()
     }
 
+    #[inline]
     pub fn loc(&self) -> &Rect<V, D> {
         &self.loc
     }
 
+    #[inline]
     pub fn is_stale(&self) -> bool {
         self.stale
     }
 
+    #[inline]
     pub fn update_loc(&mut self, new_loc: Rect<V, D>) {
         self.loc = new_loc;
     }
 
+    #[inline]
     pub fn delete(&mut self) {
         self.stale = true;
     }
 
+    #[inline]
+    pub fn refresh(&mut self) { self.stale = false; }
+
+    #[inline]
     pub fn match_key(&self, key_2_match: &str) -> bool {
         self.key == key_2_match
     }
@@ -268,18 +278,22 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         }
     }
 
+    #[inline]
     pub fn hash(&self) -> HashValue {
         self.hash
     }
 
+    #[inline]
     fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
         self.hash.as_ref()
     }
 
+    #[inline]
     pub fn is_overflow(&self) -> bool {
         self.entry.len() > Self::CAPACITY
     }
 
+    #[inline]
     pub fn need_downcast(&self) -> bool {
         self.entry.len() < Self::MIN_FANOUT
     }
@@ -296,6 +310,7 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         self.hash = hasher.finish();
     }
 
+    #[inline]
     pub fn mbr(&self) -> &Rect<V, D> {
         &self.mbr
     }
@@ -310,7 +325,7 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         None
     }
 
-    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<Rect<V, D>>) {
+    pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         let mut res = vec![];
         let mut objs = vec![];
         let mut queue = VecDeque::new();
@@ -324,7 +339,7 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
                 }
             } else {
                 for entry in node.entry.iter() {
-                    objs.push(entry.mbr().clone())
+                    objs.push((entry.get_object().is_stale() ,entry.mbr().clone()))
                 }
             }
         }
