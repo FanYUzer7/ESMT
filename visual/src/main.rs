@@ -165,6 +165,10 @@ fn main() {
                         println!("update object oloc: {:?}, nloc: {:?}, tree.len() = {}", oloc, [x,y],tree.len());
                         (nodes, objs) = tree.display();
                         modified = true;
+                    } else if input.scancode == 50 && input.state == ElementState::Released {
+                        tree.merge_empty();
+                        (nodes, objs) = tree.display();
+                        modified = true;
                     }
                 }
                 _ => return,

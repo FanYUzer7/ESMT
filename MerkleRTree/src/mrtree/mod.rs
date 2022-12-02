@@ -355,6 +355,7 @@ mod test {
     use crate::shape::Rect;
     use rand::{thread_rng, Rng};
     use types::hash_value::{ESMTHasher, HashValue};
+    use types::test_utils::{calc_hash, num_hash};
     use crate::node::{ESMTEntry, HilbertSorter, Integer, Node, ObjectEntry, UnsignedInteger};
     use crate::mrtree::MerkleRTree as Tree;
 
@@ -421,7 +422,7 @@ mod test {
         ];
         let mut hashes = vec![];
         for i in 0..8 {
-            hashes.push(hash(i));
+            hashes.push(num_hash(i));
         }
         let mut root_hashes = vec![];
         let mut node_set = BTreeSet::new();
@@ -463,19 +464,5 @@ mod test {
             assert_eq!(expected_hash, tree.root_hash().unwrap());
             println!("test-del-{} pass", i);
         }
-    }
-
-    fn hash(data: i32) -> HashValue {
-        let bytes = data.to_le_bytes();
-        let hasher = ESMTHasher::default();
-        hasher.update(&bytes).finish()
-    }
-
-    fn calc_hash(set: &BTreeSet<HashValue>) -> HashValue {
-        let hasher = set.iter()
-            .fold(ESMTHasher::default(), |h, hash| {
-                h.update(hash.as_ref())
-            });
-        hasher.finish()
     }
 }

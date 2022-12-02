@@ -1,5 +1,6 @@
+use std::collections::VecDeque;
 use types::hash_value::HashValue;
-use crate::node::{ESMTEntry, FromPrimitive, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
+use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
 
 struct EfficientMRTreeNode<V, const D: usize, const C: usize>
@@ -177,6 +178,125 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         }
         None
     }
+
+    /**
+    递归地进行压缩与合并
+
+    递归的步骤：
+    1. 如果节点（Node）的高度为0（height=0），则将自身的条目进行压缩并返回
+    1. 压缩（[`compact`](fn@compact)）节点的每一个条目（Entry）
+    1. 将节点的所有条目进行合并（[`merge`](fn@merge)），重新生成一定数量的条目
+        - 如果无法生成一个条目Ei，则将组成条目Ei的条目Ej加入到re-insert队列中
+    3. 递归结束，执行re-insert
+     */
+    // fn compact_and_merge(node: &mut Node<V, D, C>, reinsert: &mut Vec<ESMTEntry<V, D, C>>, height: u32) {
+    //     let mut entries = vec![];
+    //     node.recalculate_mbr();
+    //     let hilbert_sorter = HilbertSorter::<V, D, C>::new(node.mbr());
+    //     // 准备处理object
+    //     if height == 1 {
+    //         // 压缩收集非stale的object
+    //         for i in 0..node.entry.len() {
+    //             let objs = node.entry[i].get_node_mut().entry.drain(..);
+    //             entries.extend(objs.filter(|e| {
+    //                 !e.get_object().is_stale()
+    //             }));
+    //         }
+    //         // 排序 & 打包节点
+    //         let sorted_entries = hilbert_sorter.sort(entries);
+    //         node.entry = PartionTree::pack_node(sorted_entries, reinsert, 0);
+    //         // 重新计算节点的mbr
+    //         for ety in &mut node.entry {
+    //             ety.get_node_mut().recalculate_mbr();
+    //         }
+    //         // 重新计算自己的mbr
+    //         node.recalculate_mbr();
+    //     } else {
+    //         // 排序，打包
+    //         for i in 0..node.entry.len() {
+    //             entries.extend(node.entry[i].get_node_mut().entry.drain(..));
+    //         }
+    //         let sorted_entries = hilbert_sorter.sort(entries);
+    //         node.entry = PartionTree::pack_node(sorted_entries, reinsert, height - 1);
+    //         for i in 0..node.entry.len() {
+    //             let mut child = node.entry[i].get_node_mut();
+    //             Self::compact_and_merge(child, reinsert, height - 1);
+    //             if child.need_downcast() {
+    //                 reinsert.extend(child.entry.drain(..));
+    //             }
+    //         }
+    //     }
+    // }
+
+    /// 打包entry形成节点
+    fn pack_node(mut entries: Vec<ESMTEntry<V, D, C>>,
+                 reinsert: &mut Vec<ESMTEntry<V, D, C>>,
+                 height: u32,
+    ) -> Vec<ESMTEntry<V, D, C>> {
+        // 如果条目数量不足以打包，那么需要重新插入
+        if entries.len() < Node::<V, D, C>::MIN_FANOUT {
+            reinsert.extend(entries);
+            return vec![];
+        }
+        let full_pack_remain = entries.len() % Node::<V, D, C>::CAPACITY;
+        let full_pack_cnt = entries.len() / Node::<V, D, C>::CAPACITY;
+        let mut slice = vec![Node::<V, D, C>::CAPACITY; full_pack_cnt];
+        if full_pack_remain > 0 && full_pack_remain < Node::<V, D, C>::MIN_FANOUT {
+            slice[full_pack_cnt - 1] = Node::<V, D, C>::CAPACITY + full_pack_remain - Node::<V, D, C>::MIN_FANOUT;
+            slice.push(Node::<V, D, C>::MIN_FANOUT);
+        } else if Node::<V, D, C>::MIN_FANOUT < full_pack_remain {
+            slice.push(full_pack_remain);
+        }
+        let mut nodes = Vec::with_capacity(slice.len());
+        for slice_cnt in slice.into_iter() {
+            let entry = entries.drain(..slice_cnt).collect::<Vec<_>>();
+            let mut node = Node::new_with_entry(height, entry);
+            node.recalculate_state_after_sort();
+            nodes.push(ESMTEntry::ENode(node));
+        }
+        nodes
+    }
+
+    fn compact(root: Node<V,D,C>) -> Vec<ESMTEntry<V, D, C>> {
+        let sorter = HilbertSorter::new(root.mbr());
+        let mut queue = VecDeque::new();
+        let mut objs = vec![];
+        queue.push_back(root);
+        while !queue.is_empty() {
+            let mut node =queue.pop_front().unwrap();
+            if node.height == 0 {
+                objs.extend(node.entry
+                    .into_iter()
+                    .filter(|e| {
+                        !e.get_object().is_stale()
+                    }));
+            } else {
+                queue.extend(node.entry
+                    .into_iter()
+                    .map(|e| {
+                        e.unpack_node()
+                    }));
+            }
+        }
+        sorter.sort(objs)
+    }
+
+    fn build_tree(mut objs: Vec<ESMTEntry<V, D, C>>) -> Node<V, D, C> {
+        let cap = Node::<V, D, C>::CAPACITY;
+        let min_fanout = Node::<V, D, C>::MIN_FANOUT;
+        let mut height = 0u32;
+        let mut roo_child = vec![];
+        while objs.len() > cap {
+            objs = Self::pack_node(objs, &mut roo_child, height);
+            height += 1;
+        }
+        if objs.len() == 0 {
+            objs = roo_child;
+        }
+        let mut root = Node::new_with_entry(height, objs);
+        root.recalculate_state_after_sort();
+        root
+    }
 }
 
 pub struct PartionTree<V, const D: usize, const C: usize> 
@@ -293,6 +413,12 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         }
     }
 
+    pub fn merge_empty(&mut self) {
+        let root = self.root.take().unwrap().unpack_node();
+        let new_root = EfficientMRTreeNode::build_tree(EfficientMRTreeNode::compact(root));
+        self.root = Some(EfficientMRTreeNode::new(new_root));
+    }
+
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         match &self.root {
             None => {
@@ -305,3 +431,10 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
     }
 }
 
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_root_hash() {
+
+    }
+}

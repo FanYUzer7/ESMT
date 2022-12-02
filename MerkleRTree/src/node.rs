@@ -278,6 +278,15 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         }
     }
 
+    pub fn new_with_entry(height: u32, entry: Vec<ESMTEntry<V, D, C>>) -> Self {
+        Self {
+            height,
+            mbr: Rect::default(),
+            hash: HashValue::default(),
+            entry,
+        }
+    }
+
     #[inline]
     pub fn hash(&self) -> HashValue {
         self.hash
@@ -488,7 +497,7 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
         _HILBERT3[idx]
     }
 
-    fn sort(&self, v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
+    pub(crate) fn sort(&self, v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
         // calculate hilebert index
         let mut indexed = v.into_iter()
             .map(|e| (self.hilbert_idx(e.mbr()), e))

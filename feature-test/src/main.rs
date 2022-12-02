@@ -6,6 +6,7 @@ use types::hash_value::{ESMTHasher, HashValue};
 use MerkleRTree::node::{HilbertSorter};
 use MerkleRTree::shape::Rect;
 use MerkleRTree::mrtree::MerkleRTree as Tree;
+use types::test_utils::{calc_hash, num_hash};
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -22,7 +23,7 @@ fn main() {
     ];
     let mut hashes = vec![];
     for i in 0..8 {
-        hashes.push(hash(i));
+        hashes.push(num_hash(i));
     }
     if args[1] == "-s" {
         assert!(args.len() >= 3, "at least one point");
@@ -40,7 +41,7 @@ fn main() {
             let hilbert_idx = sorter.hilbert_idx(&Rect::<usize, 2>::new_point(points[i]));
             println!("point [{}] hilbert idx = {}", i, hilbert_idx);
         }
-    } else {
+    } else if args[1] == "-h" {
         assert_eq!(args.len(), 3, "please input correct hash set");
         let mut stack = vec![];
         let mut parse_stack = vec![];
@@ -72,21 +73,12 @@ fn main() {
         }
         assert_eq!(parse_stack.len(), 1, "parse error");
         println!("hashvalue: {:?}", stack.pop().unwrap());
+    } else if args[1] == "-p" {
+        assert_eq!(args.len(), 4, "please input correct parameter");
+        let total = i32::from_str(&args[2]).unwrap();
+        let cap = i32::from_str(&args[3]).unwrap();
+        println!("packed node {:?}", pack_node(total, cap));
     }
-}
-
-fn hash(data: i32) -> HashValue {
-    let bytes = data.to_le_bytes();
-    let hasher = ESMTHasher::default();
-    hasher.update(&bytes).finish()
-}
-
-fn calc_hash(set: &BTreeSet<HashValue>) -> HashValue {
-    let hasher = set.iter()
-        .fold(ESMTHasher::default(), |h, hash| {
-            h.update(hash.as_ref())
-        });
-    hasher.finish()
 }
 
 fn print_hilbert_idx() {
@@ -106,4 +98,24 @@ fn print_hilbert_idx() {
     for i in [1usize, 5, 3, 6] {
         println!("{}", hilbert_sorter.hilbert_idx(&Rect::new_point(points[i].clone())));
     }
+}
+
+fn pack_node(total: i32, cap: i32) -> Vec<i32> {
+    assert!(total <= cap *cap, "total nums must no greater than cap2");
+    let down = (cap + 1) / 2;
+    let mut full_pack_size = cap;
+    let full_pack_remain = total % cap;
+    let full_pack_cnt = total / cap;
+    if full_pack_remain == 0 {
+        return vec![full_pack_size; full_pack_cnt as usize];
+    }
+    let mut res = vec![full_pack_size; (full_pack_cnt - 1) as usize];
+    if full_pack_remain < down {
+        res.push(full_pack_size + full_pack_remain - down);
+        res.push(down);
+    } else {
+        res.push(full_pack_size);
+        res.push(full_pack_remain);
+    }
+    res
 }
