@@ -12,33 +12,83 @@ fn main() {
     let args: Vec<_> = env::args().collect();
     // let mut rng = thread_rng();
     let points = vec![
-        [1usize, 8],
-        [3, 9],
-        [3, 6],
-        [9, 2],
-        [2, 7],
-        [7, 1],
-        [3, 1],
-        [5, 8],
+        [1usize, 6],
+        [0, 5],
+        [3, 2],
+        [4, 5],
+        [8, 5],
+        [2, 8],
+        [2, 3],
+        [6, 7],
+        [8, 0],
+        [1, 1]
     ];
     let mut hashes = vec![];
-    for i in 0..8 {
+    for i in 0..10 {
         hashes.push(num_hash(i));
     }
+    let mut sorter = HilbertSorter::<usize, 2, 3>::new(&Rect::default());
     if args[1] == "-s" {
-        assert!(args.len() >= 3, "at least one point");
-        let range_set = args
-            .iter()
-            .skip(2)
-            .map(|s| usize::from_str(s).unwrap())
-            .collect::<Vec<_>>();
-        let mut range = Rect::<usize, 2>::new_point(points[0]);
-        for i in range_set.iter() {
-            range.expand(&Rect::<usize,2>::new_point(points[*i]));
+        assert!(args.len() == 3, "at least one point");
+        let mut range = None;
+        let mut range_set = vec![];
+        let mut stack: Vec<Rect<usize, 2>> = vec![];
+        let mut parse_stack = vec![];
+        let parse_str = args[2].clone();
+        let mut brack_cnt = 0;
+        for &byte in parse_str.as_bytes() {
+            match byte {
+                91u8 => { // '['
+                    parse_stack.push(byte);
+                    brack_cnt += 1;
+                }
+                93u8 => { // ']'
+                    if brack_cnt == 1 {
+                        while let Some(ch) = parse_stack.pop() {
+                            if ch != 91 {
+                                range_set.push(stack.pop().unwrap());
+                            } else {
+                                brack_cnt -= 1;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    let mut temp_range = None;
+                    while let Some(ch) = parse_stack.pop() {
+                        if ch != 91 {
+                            if temp_range.is_some() {
+                                let r: &mut Rect<usize, 2> = temp_range.as_mut().unwrap();
+                                r.expand(&(stack.pop().unwrap()));
+                            } else {
+                                temp_range = Some(stack.pop().unwrap());
+                            }
+                        } else {
+                            stack.push(temp_range.unwrap());
+                            parse_stack.push(92u8);
+                            brack_cnt -= 1;
+                            break;
+                        }
+                    }
+                }
+                48..=57u8 => {
+                    let idx = (byte - 48) as usize;
+                    parse_stack.push(byte);
+                    let rect = Rect::new_point(points[idx].clone());
+                    stack.push(rect.clone());
+                    if range.is_none() {
+                        range = Some(rect);
+                    } else {
+                        let r: &mut Rect<usize, 2> = range.as_mut().unwrap();
+                        r.expand(&rect);
+                    }
+                }
+                _ => { continue; }
+            }
         }
-        let sorter = HilbertSorter::<usize, 2, 3>::new(&range);
-        for i in range_set {
-            let hilbert_idx = sorter.hilbert_idx(&Rect::<usize, 2>::new_point(points[i]));
+        sorter = HilbertSorter::new(range.as_ref().unwrap());
+        for i in range_set.into_iter().rev() {
+            let hilbert_idx = sorter.hilbert_idx(&i);
             println!("point [{}] hilbert idx = {}", i, hilbert_idx);
         }
     } else if args[1] == "-h" {
@@ -72,27 +122,40 @@ fn main() {
             }
         }
         assert_eq!(parse_stack.len(), 1, "parse error");
-        println!("hashvalue: {:?}", stack.pop().unwrap());
+        println!("{:?}", stack.pop().unwrap());
     } else if args[1] == "-p" {
         assert_eq!(args.len(), 4, "please input correct parameter");
         let total = i32::from_str(&args[2]).unwrap();
         let cap = i32::from_str(&args[3]).unwrap();
         println!("packed node {:?}", pack_node(total, cap));
+    } else if args[1] == "-r" {
+        assert!(args.len() >= 3, "at least one point");
+        let range_set = args
+            .iter()
+            .skip(2)
+            .map(|s| usize::from_str(s).unwrap())
+            .collect::<Vec<_>>();
+        let mut range = Rect::<usize, 2>::new_point(points[range_set[0]]);
+        for i in range_set.iter() {
+            range.expand(&Rect::<usize,2>::new_point(points[*i]));
+        }
+        println!("{:?} area = {}",range, range.area());
+        sorter = HilbertSorter::<usize, 2, 3>::new(&range);
     }
 }
 
 fn print_hilbert_idx() {
     let points = vec![
-        [1usize, 8],
-        [3, 9],
-        [3, 6],
-        [9, 2],
-        [2, 7],
-        [7, 1],
-        [3, 1],
-        [5, 8],
-        [8, 2],
-        [0, 4],
+        [1usize, 6],
+        [0, 5],
+        [3, 2],
+        [4, 5],
+        [8, 5],
+        [2, 8],
+        [2, 3],
+        [6, 7],
+        [8, 0],
+        [1, 1]
     ];
     let hilbert_sorter = HilbertSorter::<usize ,2, 3>::new(&Rect::new([3usize, 1], [9usize, 9]));
     for i in [1usize, 5, 3, 6] {

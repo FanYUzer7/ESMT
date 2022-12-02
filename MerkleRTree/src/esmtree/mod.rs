@@ -433,8 +433,79 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
 
 #[cfg(test)]
 mod test {
+    use types::hash_value::HashValue;
+    use types::test_utils::{generate_points, num_hash};
+    use crate::esmtree::PartionTree;
+
+    enum Operator {
+        Insert(usize),
+        Delete(usize),
+        Update(usize),
+        Merge,
+    }
     #[test]
     fn test_root_hash() {
-
+        // let points = generate_points([0usize, 0], [8usize, 8], 10);
+        let points = vec![
+            [1usize, 6],
+            [0, 5],
+            [3, 2],
+            [4, 5],
+            [8, 5],
+            [2, 8],
+            [2, 3],
+            [6, 7],
+            [8, 0],
+            [1, 1]
+        ];
+        let new_points = vec![
+            [4usize, 1], [2, 5], [2, 3], [6, 1], [8, 3], [0, 0], [4, 5], [4, 3], [7, 5], [0, 3]
+        ];
+        println!("{:?}", points);
+        let ops = vec![
+            Operator::Insert(0),
+            Operator::Insert(1),
+            Operator::Insert(2),
+            Operator::Insert(3),
+            Operator::Insert(4),
+            Operator::Insert(5),
+            Operator::Insert(6),
+            Operator::Insert(7),
+            Operator::Insert(8),
+        ];
+        let hash_str = vec![
+            "5b4d6fe0dd8fd7bc6de264d7c3db3ed25ae1306dbdf20843e91acaaf8b6728f5".to_string(), // i 0
+            "8186e82dd80cce7b15828191c85bf1f128bd6e1168f670361a65c9b14cd7b06d".to_string(), // i 1
+            "8d015b832a692a90b69409c6bdabcd122c05f198306dd481bf380c0a1d817e66".to_string(), // i 2
+            "0bd13fbae340f13bc8580b2d777c5393652a2e4fce220bb618b156b8cf97b90f".to_string(), // i 3
+            "7b5b68e400187a7c07f1af2043315dee22517f0919cfd1df1b21a319b0bb04e4".to_string(), // i 4
+            "902d1aaa9fdedf73a5cb2e289a941d7baed0db1263581e50e09643494c0b917d".to_string(), // i 5
+            "0af2fb57bcc0d167b87d4ac94cb22ae1e977d788225f6dc6cff8d2337a4fa572".to_string(), // i 6
+            "6fb829122401c6d92d7d860aa6f6329e2d8202d63259c27a6cd819f753ebad7d".to_string(), // i 7
+            "48e1e65014f7ea6e53398dc8718e7d10c98cc1f93e87f941d64336a548b9f65a".to_string(), // i 8
+            "2b3e36e150217da8d4fa8466dbbcbc8b4c2fc9822120d2d992639fada09dcc43".to_string(), // i 9
+        ];
+        let root_hashes = hash_str.into_iter()
+            .map(|s| HashValue::from_slice(&hex::decode(s).unwrap()).unwrap())
+            .collect::<Vec<_>>();
+        let mut tree = PartionTree::<usize, 2, 3>::new();
+        for (idx,(op,hash)) in ops.into_iter().zip(root_hashes.into_iter()).enumerate() {
+            match op {
+                Operator::Insert(i) => {
+                    tree.insert(format!("testkey-{}",i), points[i].clone(), num_hash(i as i32));
+                }
+                Operator::Delete(i) => {
+                    tree.delete(&format!("testkey-{}",i), &points[i]);
+                }
+                Operator::Update(i) => {
+                    unimplemented!()
+                }
+                Operator::Merge => {
+                    tree.merge_empty();
+                }
+            }
+            assert_eq!(tree.root_hash().unwrap(), hash);
+            println!("hash test-{} passed", idx);
+        }
     }
 }
