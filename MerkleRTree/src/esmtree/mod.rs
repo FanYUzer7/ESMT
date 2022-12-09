@@ -472,6 +472,8 @@ mod test {
             Operator::Insert(6),
             Operator::Insert(7),
             Operator::Insert(8),
+            Operator::Insert(9),
+            Operator::Update(5),
         ];
         let hash_str = vec![
             "5b4d6fe0dd8fd7bc6de264d7c3db3ed25ae1306dbdf20843e91acaaf8b6728f5".to_string(), // i 0
