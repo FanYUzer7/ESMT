@@ -3,6 +3,7 @@ use chrono::Local;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use once_cell::sync::Lazy;
+use serde::{Serialize, Deserialize};
 
 static ESMT_SALT: Lazy<HashValue> = Lazy::new(|| {
     let hasher = ESMTHasher::new();
@@ -11,7 +12,7 @@ static ESMT_SALT: Lazy<HashValue> = Lazy::new(|| {
 });
 
 /// Hash Value in ESMT
-#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
+#[derive(Eq, PartialEq, Copy, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct HashValue {
     hash: [u8; HashValue::LENGTH],
 }

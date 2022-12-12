@@ -437,6 +437,7 @@ mod test {
     use types::test_utils::{generate_points, num_hash};
     use crate::esmtree::PartionTree;
 
+    #[derive(Debug)]
     enum Operator {
         Insert(usize),
         Delete(usize),
@@ -459,7 +460,7 @@ mod test {
             [1, 1]
         ];
         let new_points = vec![
-            [4usize, 1], [2, 5], [2, 3], [6, 1], [8, 3], [0, 0], [4, 5], [4, 3], [7, 5], [0, 3]
+            [2usize, 7], [2, 5], [2, 3], [6, 1], [8, 3], [0, 0], [4, 5], [4, 3], [7, 5], [0, 3]
         ];
         println!("{:?}", points);
         let ops = vec![
@@ -474,6 +475,10 @@ mod test {
             Operator::Insert(8),
             Operator::Insert(9),
             Operator::Update(5),
+            Operator::Update(4),
+            Operator::Update(1),
+            Operator::Update(0),
+            Operator::Merge,
         ];
         let hash_str = vec![
             "5b4d6fe0dd8fd7bc6de264d7c3db3ed25ae1306dbdf20843e91acaaf8b6728f5".to_string(), // i 0
@@ -486,6 +491,11 @@ mod test {
             "6fb829122401c6d92d7d860aa6f6329e2d8202d63259c27a6cd819f753ebad7d".to_string(), // i 7
             "48e1e65014f7ea6e53398dc8718e7d10c98cc1f93e87f941d64336a548b9f65a".to_string(), // i 8
             "2b3e36e150217da8d4fa8466dbbcbc8b4c2fc9822120d2d992639fada09dcc43".to_string(), // i 9
+            "9fbca63c043666257f91d43f329d3234f14582147d5b95250b2f095bed549712".to_string(), // u 5
+            "9fbca63c043666257f91d43f329d3234f14582147d5b95250b2f095bed549712".to_string(), // u 4
+            "8865cad780eedf83b2db2f6425cb5f6592729dee25da1dce2c8820823e32db7a".to_string(), // u 1
+            "200394f45e6ff302874ec2d8ee59c2272e701d6957172eba5b08d999ecfb6d08".to_string(), // u 0
+            "96112008a00abf1ef6c7ea6f0409eb477ff251dc09bb2ade7409aa85080690dc".to_string(), // m
         ];
         let root_hashes = hash_str.into_iter()
             .map(|s| HashValue::from_slice(&hex::decode(s).unwrap()).unwrap())
@@ -500,14 +510,14 @@ mod test {
                     tree.delete(&format!("testkey-{}",i), &points[i]);
                 }
                 Operator::Update(i) => {
-                    unimplemented!()
+                    tree.update(&format!("testkey-{}",i),&points[i], new_points[i].clone());
                 }
                 Operator::Merge => {
                     tree.merge_empty();
                 }
             }
             assert_eq!(tree.root_hash().unwrap(), hash);
-            println!("hash test-{} passed", idx);
+            println!("{:?} passed", op);
         }
     }
 }

@@ -1,13 +1,21 @@
 use std::collections::{BTreeSet, HashMap};
+use std::fs::File;
+use std::io::{Read, Write};
 use std::str::FromStr;
-use rand::{Rng, thread_rng};
-use types::hash_value::{ESMTHasher, HashValue};
+use types::hash_value::{HashValue};
 use MerkleRTree::node::{HilbertSorter};
 use MerkleRTree::shape::Rect;
-use MerkleRTree::mrtree::MerkleRTree as Tree;
 use types::test_utils::{calc_hash, num_hash};
 use rustyline::error::ReadlineError;
 use rustyline::{Editor, Result};
+use serde::{Serialize, Deserialize};
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+struct FeatureArgs {
+    #[structopt(short = "h", long)]
+    pub history: Option<String>,
+}
 
 struct Cmd {
     func: String,
@@ -16,12 +24,23 @@ struct Cmd {
 
 impl Cmd {
     pub fn from_cmdline(cmd: String) -> Self {
-        let mut iter = cmd.split_ascii_whitespace().map(|s| s.to_string());
+        let iter = cmd.split_ascii_whitespace().collect::<Vec<_>>();
+        if iter.len() == 0 {
+            return Self::empty();
+        }
+        let mut iter = iter.into_iter().map(|s| s.to_string());
         let func = iter.next().unwrap();
         let params = iter.collect();
         Self {
             func,
             params,
+        }
+    }
+
+    fn empty() -> Self {
+        Self {
+            func: "empty".to_string(),
+            params: vec![]
         }
     }
 
@@ -41,6 +60,7 @@ impl Cmd {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 struct CliService {
     pub points: Vec<[usize; 2]>,
     pub hashes: Vec<HashValue>,
@@ -65,6 +85,27 @@ impl CliService {
             points,
             hashes,
         }
+    }
+
+    pub fn from_args(args: FeatureArgs) -> Self {
+        let service = if let Some(path) = args.history {
+            let mut f = File::open(path).unwrap();
+            let mut s = "".to_string();
+            let _ = f.read_to_string(&mut s);
+            serde_json::from_str(&s).unwrap()
+        } else {
+            Self::default()
+        };
+        for (i,p) in service.points.iter().enumerate() {
+            println!("point[{}] = {:?}",i, *p);
+        }
+        service
+    }
+
+    pub fn save(&self) {
+        let mut f = File::create("./service.his").unwrap();
+        let his = serde_json::to_string(self).unwrap();
+        let _ = f.write_all(his.as_bytes());
     }
 }
 
@@ -140,9 +181,10 @@ impl RemoteProcedure {
 
 fn main() -> Result<()> {
     // `()` can be used when no completer is required
+    let args: FeatureArgs = FeatureArgs::from_args();
     let mut rl = Editor::<()>::new()?;
     let _ = rl.load_history("history.txt");
-    let mut service = CliService::default();
+    let mut service = CliService::from_args(args);
     let method = RemoteProcedure::default();
 
     loop {
@@ -151,7 +193,13 @@ fn main() -> Result<()> {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 let cmd = Cmd::from_cmdline(line);
-                method.call(cmd, &mut service);
+                if cmd.pattern() == "quit" {
+                    break;
+                } else if cmd.pattern() == "empty" {
+                    continue;
+                } else {
+                    method.call(cmd, &mut service);
+                }
             },
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
@@ -163,6 +211,7 @@ fn main() -> Result<()> {
             }
         }
     }
+    service.save();
     rl.save_history("history.txt")
 }
 
@@ -182,9 +231,9 @@ fn pack(cmd: Cmd, _service: &mut CliService) {
 
     let total = usize::from_str(&args[0]).unwrap();
     let cap = usize::from_str(&args[1]).unwrap();
-    assert!(total <= cap *cap, "total nums must no greater than cap2");
+    // assert!(total <= cap *cap, "total nums must no greater than cap2");
     let down = (cap + 1) / 2;
-    let mut full_pack_size = cap;
+    let full_pack_size = cap;
     let full_pack_remain = total % cap;
     let full_pack_cnt = total / cap;
     let res = {
@@ -278,7 +327,7 @@ fn hash(cmd: Cmd, service: &mut CliService) {
     let mut parse_stack = vec![];
 
     let args = cmd.params();
-    let parse_str = args[1].clone();
+    let parse_str = args[0].clone();
     for &byte in parse_str.as_bytes() {
         match byte {
             91u8 => { // '['
@@ -330,6 +379,7 @@ fn update(cmd: Cmd, service: &mut CliService) {
     let x = usize::from_str(&args[1]).unwrap();
     let y = usize::from_str(&args[2]).unwrap();
 
+    let old = service.points[p].clone();
     service.points[p] = [x,y];
-    println!("point {} ---> {:?}",p, [x,y]);
+    println!("point {}: {:?} ---> {:?}",p, old,[x,y]);
 }
