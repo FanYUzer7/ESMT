@@ -244,6 +244,7 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
         let obj = ESMTEntry::Object(ObjectEntry::new(key, loc, hash));
         let obj_loc = obj.mbr().clone();
         self.insert_impl(obj, &obj_loc, self.height);
+        self.len += 1;
     }
 
     fn insert_impl(&mut self, entry: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
@@ -262,7 +263,6 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
         } else {
             root.node.rehash()
         }
-        self.len += 1;
     }
 
     pub fn delete(&mut self, key: &str, rect: &[V;D]) -> Option<ObjectEntry<V, D>> {

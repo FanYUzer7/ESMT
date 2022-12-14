@@ -334,6 +334,11 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         None
     }
 
+    #[inline]
+    pub fn suitable_for_subtree(&self) -> bool {
+        self.height == 0 || self.entry.len() >= Self::MIN_FANOUT
+    }
+
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         let mut res = vec![];
         let mut objs = vec![];

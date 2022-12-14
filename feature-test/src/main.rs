@@ -1,7 +1,9 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::str::FromStr;
+use std::time::{Duration, Instant};
+use rand::{Rng, thread_rng};
 use types::hash_value::{HashValue};
 use MerkleRTree::node::{HilbertSorter};
 use MerkleRTree::shape::Rect;
@@ -169,6 +171,9 @@ impl RemoteProcedure {
         });
         methods.insert("update".to_string(), |cmd, service| {
             update(cmd, service);
+        });
+        methods.insert("test".to_string(), |cmd, service| {
+            test_efficient(cmd, service);
         });
         methods
     }
@@ -382,4 +387,37 @@ fn update(cmd: Cmd, service: &mut CliService) {
     let old = service.points[p].clone();
     service.points[p] = [x,y];
     println!("point {}: {:?} ---> {:?}",p, old,[x,y]);
+}
+
+fn test_efficient(cmd: Cmd, service: &mut CliService) {
+    let args = cmd.params();
+    let num = i32::from_str(&args[0]).unwrap();
+
+    let mut rng = thread_rng();
+    let mut dur1 = 0_u128;
+    let mut dur2 = 0_u128;
+    for _ in 0..1000 {
+        let mut vec1 = {
+            let mut v = vec![];
+            for _ in 0..num {
+                v.push(rng.gen_range(0..10000));
+            }
+            v
+        };
+        let mut vec2 = VecDeque::new();
+        vec2.extend(vec1.clone());
+        let (n1, n2) = (99999,99998);
+        let ins1 = Instant::now();
+        vec1.insert(0, n1);
+        vec1.insert(0, n2);
+        dur1 += ins1.elapsed().as_nanos();
+        println!("{:?}", vec1);
+
+        let ins2 = Instant::now();
+        vec2.push_front(n1);
+        vec2.push_front(n2);
+        dur2 += ins2.elapsed().as_nanos();
+        println!("{:?}", vec2);
+    }
+    println!("insert: {}ns, extend: {}ns", dur1 / 1000, dur2 / 1000);
 }

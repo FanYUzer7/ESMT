@@ -179,54 +179,38 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         None
     }
 
-    /**
-    递归地进行压缩与合并
-
-    递归的步骤：
-    1. 如果节点（Node）的高度为0（height=0），则将自身的条目进行压缩并返回
-    1. 压缩（[`compact`](fn@compact)）节点的每一个条目（Entry）
-    1. 将节点的所有条目进行合并（[`merge`](fn@merge)），重新生成一定数量的条目
-        - 如果无法生成一个条目Ei，则将组成条目Ei的条目Ej加入到re-insert队列中
-    3. 递归结束，执行re-insert
-     */
-    // fn compact_and_merge(node: &mut Node<V, D, C>, reinsert: &mut Vec<ESMTEntry<V, D, C>>, height: u32) {
-    //     let mut entries = vec![];
-    //     node.recalculate_mbr();
-    //     let hilbert_sorter = HilbertSorter::<V, D, C>::new(node.mbr());
-    //     // 准备处理object
-    //     if height == 1 {
-    //         // 压缩收集非stale的object
-    //         for i in 0..node.entry.len() {
-    //             let objs = node.entry[i].get_node_mut().entry.drain(..);
-    //             entries.extend(objs.filter(|e| {
-    //                 !e.get_object().is_stale()
-    //             }));
-    //         }
-    //         // 排序 & 打包节点
-    //         let sorted_entries = hilbert_sorter.sort(entries);
-    //         node.entry = PartionTree::pack_node(sorted_entries, reinsert, 0);
-    //         // 重新计算节点的mbr
-    //         for ety in &mut node.entry {
-    //             ety.get_node_mut().recalculate_mbr();
-    //         }
-    //         // 重新计算自己的mbr
-    //         node.recalculate_mbr();
-    //     } else {
-    //         // 排序，打包
-    //         for i in 0..node.entry.len() {
-    //             entries.extend(node.entry[i].get_node_mut().entry.drain(..));
-    //         }
-    //         let sorted_entries = hilbert_sorter.sort(entries);
-    //         node.entry = PartionTree::pack_node(sorted_entries, reinsert, height - 1);
-    //         for i in 0..node.entry.len() {
-    //             let mut child = node.entry[i].get_node_mut();
-    //             Self::compact_and_merge(child, reinsert, height - 1);
-    //             if child.need_downcast() {
-    //                 reinsert.extend(child.entry.drain(..));
-    //             }
-    //         }
-    //     }
-    // }
+    /// 删除时会重新计算每一层的mbr以及hash；是否发生下溢由上一层进行判断
+    fn delete_downcast(node: &mut Node<V, D, C>,
+                     rect: &Rect<V, D>,
+                     reinsert: &mut VecDeque<ESMTEntry<V, D, C>>,
+                     height: u32,
+    ) -> (Option<ESMTEntry<V, D, C>>, bool) {
+        let subtree_idx = node.choose_subtree(rect);
+        if height == 0 {
+            let to_delete = node.entry.swap_remove(subtree_idx);
+            let recalced = node.mbr.on_edge(to_delete.mbr());
+            if recalced {
+                node.recalculate_mbr();
+            }
+            node.rehash();
+            (Some(to_delete),
+             recalced)
+        } else {
+            let child = node.entry[subtree_idx].get_node_mut();
+            let (something_delete, mut recalced) =
+                Self::delete_downcast(child, rect, reinsert, height - 1);
+            if child.need_downcast() {
+                reinsert.extend(child.entry.drain(..));
+                let underflow_node = node.entry.swap_remove(subtree_idx);
+                recalced = node.mbr.on_edge(underflow_node.mbr());
+            }
+            if recalced {
+                node.recalculate_mbr();
+            }
+            node.rehash();
+            (something_delete, recalced)
+        }
+    }
 
     /// 打包entry形成节点
     fn pack_node(mut entries: Vec<ESMTEntry<V, D, C>>,
@@ -336,6 +320,15 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         self.area.clone()
     }
 
+    pub fn range(&self) -> Option<Rect<V, D>> {
+        match &self.root {
+            None => { None }
+            Some(r) => {
+                Some(r.node.mbr().clone())
+            }
+        }
+    }
+
     #[inline]
     pub fn len(&self) -> usize {
         self.len
@@ -355,6 +348,7 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         let obj = ESMTEntry::Object(ObjectEntry::new(key, loc, hash));
         let obj_loc = obj.mbr().clone();
         self.insert_impl(obj, &obj_loc, self.height);
+        self.len += 1;
     }
 
     fn insert_impl(&mut self, entry: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
@@ -373,7 +367,6 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         } else {
             root.node.rehash()
         }
-        self.len += 1;
     }
 
     pub fn delete(&mut self, key: &str, rect: &[V;D]) -> Option<ObjectEntry<V, D>> {
@@ -417,6 +410,88 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         let root = self.root.take().unwrap().unpack_node();
         let new_root = EfficientMRTreeNode::build_tree(EfficientMRTreeNode::compact(root));
         self.root = Some(EfficientMRTreeNode::new(new_root));
+    }
+
+    pub fn merge_with_subtree(&mut self, another: &mut PartionTree<V, D, C>) {
+        if another.root.is_none() {
+            return;
+        } else if self.root.is_none() {
+            let compacted_root =
+                EfficientMRTreeNode::build_tree(
+                    EfficientMRTreeNode::compact(
+                        another.root.take().unwrap().unpack_node()));
+            self.height = compacted_root.height;
+            self.len = another.len;
+            self.root = Some(EfficientMRTreeNode::new(compacted_root));
+            another.len = 0;
+            another.height = 0;
+            return;
+        }
+
+        let (mut large_tree, small_tree) = if self.height < another.height {
+            (another.root.take().unwrap().unpack_node(), self.root.take().unwrap().unpack_node())
+        } else {
+            (self.root.take().unwrap().unpack_node(), another.root.take().unwrap().unpack_node())
+        };
+
+        let expected_repack_height = (large_tree.height as i32) - (small_tree.height as i32) - 1;
+        if expected_repack_height >= 0 { // merge进来的子树的高度比自己低
+            let mut reinsert = VecDeque::new();
+            let (to_repack,_) =
+                EfficientMRTreeNode::delete_downcast(&mut large_tree, small_tree.mbr(), &mut reinsert, expected_repack_height as u32);
+
+            if large_tree.height != 0 && large_tree.entry.len() == 1 {
+                large_tree = large_tree.entry.pop().unwrap().unpack_node();
+            }
+
+            let to_repack = to_repack.unwrap();
+            assert_eq!(to_repack.get_node().height, small_tree.height, "get different height subtrees");
+            let to_compact = Node::new_with_entry(
+                small_tree.height + 1,
+                vec![
+                    ESMTEntry::ENode(to_repack.unpack_node()),
+                    ESMTEntry::ENode(small_tree),
+                ]
+            );
+            let new_subtree = EfficientMRTreeNode::build_tree(EfficientMRTreeNode::compact(to_compact));
+            if new_subtree.suitable_for_subtree() {
+                reinsert.push_front(ESMTEntry::ENode(new_subtree));
+            } else {
+                for ety in new_subtree.entry {
+                    reinsert.push_front(ety);
+                }
+            }
+            // reinsert
+            self.height = large_tree.height;
+            self.root = Some(EfficientMRTreeNode::new(large_tree));
+            while let Some(entry) = reinsert.pop_back() {
+                let entry_loc = entry.mbr().clone();
+                let expected_height_to_insert = if entry.is_node() {
+                    // println!("re-insert node");
+                    self.height - entry.get_node().height - 1
+                } else {
+                    // println!("re-insert object");
+                    self.height
+                };
+                self.insert_impl(entry, &entry_loc, expected_height_to_insert);
+            }
+            // update metadate
+            self.len += another.len;
+        } else { // 高度相同
+            let to_compact = Node::new_with_entry(
+                small_tree.height + 1,
+                vec![
+                    ESMTEntry::ENode(large_tree),
+                    ESMTEntry::ENode(small_tree),
+                ]
+            );
+            let new_root = EfficientMRTreeNode::build_tree(EfficientMRTreeNode::compact(to_compact));
+            self.height = new_root.height;
+            self.root = Some(EfficientMRTreeNode::new(new_root));
+            self.len += another.len;
+        }
+        another.len = 0;
+        another.height = 0;
     }
 
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
