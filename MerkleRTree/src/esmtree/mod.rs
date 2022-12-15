@@ -214,13 +214,11 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
 
     /// 打包entry形成节点
     fn pack_node(mut entries: Vec<ESMTEntry<V, D, C>>,
-                 reinsert: &mut Vec<ESMTEntry<V, D, C>>,
                  height: u32,
     ) -> Vec<ESMTEntry<V, D, C>> {
         // 如果条目数量不足以打包，那么需要重新插入
-        if entries.len() < Node::<V, D, C>::MIN_FANOUT {
-            reinsert.extend(entries);
-            return vec![];
+        if entries.len() < Node::<V, D, C>::CAPACITY {
+            return entries;
         }
         let full_pack_remain = entries.len() % Node::<V, D, C>::CAPACITY;
         let full_pack_cnt = entries.len() / Node::<V, D, C>::CAPACITY;
@@ -228,7 +226,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         if full_pack_remain > 0 && full_pack_remain < Node::<V, D, C>::MIN_FANOUT {
             slice[full_pack_cnt - 1] = Node::<V, D, C>::CAPACITY + full_pack_remain - Node::<V, D, C>::MIN_FANOUT;
             slice.push(Node::<V, D, C>::MIN_FANOUT);
-        } else if Node::<V, D, C>::MIN_FANOUT < full_pack_remain {
+        } else if Node::<V, D, C>::MIN_FANOUT <= full_pack_remain {
             slice.push(full_pack_remain);
         }
         let mut nodes = Vec::with_capacity(slice.len());
@@ -269,13 +267,9 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         let cap = Node::<V, D, C>::CAPACITY;
         let min_fanout = Node::<V, D, C>::MIN_FANOUT;
         let mut height = 0u32;
-        let mut roo_child = vec![];
         while objs.len() > cap {
-            objs = Self::pack_node(objs, &mut roo_child, height);
+            objs = Self::pack_node(objs, height);
             height += 1;
-        }
-        if objs.len() == 0 {
-            objs = roo_child;
         }
         let mut root = Node::new_with_entry(height, objs);
         root.recalculate_state_after_sort();

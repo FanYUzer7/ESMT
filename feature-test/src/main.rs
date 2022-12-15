@@ -245,15 +245,20 @@ fn pack(cmd: Cmd, _service: &mut CliService) {
         if full_pack_remain == 0 {
             vec![full_pack_size; full_pack_cnt as usize]
         } else {
-            let mut res = vec![full_pack_size; (full_pack_cnt - 1) as usize];
-            if full_pack_remain < down {
-                res.push(full_pack_size + full_pack_remain - down);
-                res.push(down);
+            if full_pack_cnt >= 1 {
+                let mut res = vec![full_pack_size; (full_pack_cnt - 1) as usize];
+                if full_pack_remain < down {
+                    res.push(full_pack_size + full_pack_remain - down);
+                    res.push(down);
+                } else {
+                    res.push(full_pack_size);
+                    res.push(full_pack_remain);
+                }
+                res
             } else {
-                res.push(full_pack_size);
-                res.push(full_pack_remain);
+                let res = vec![full_pack_remain];
+                res
             }
-            res
         }
     };
     println!("packed node {:?}", res);
