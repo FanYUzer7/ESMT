@@ -1,7 +1,8 @@
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 use types::hash_value::HashValue;
 use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
+use std::fmt::Debug;
 
 struct EfficientMRTreeNode<V, const D: usize, const C: usize>
     where
@@ -412,6 +413,7 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         self.root = Some(EfficientMRTreeNode::new(new_root));
     }
 
+    // !TODO: test correctness
     pub fn merge_with_subtree(&mut self, another: &mut PartionTree<V, D, C>) {
         if another.root.is_none() {
             return;
@@ -506,11 +508,120 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
     }
 }
 
+pub struct PartionManager<V, const D: usize, const C: usize> 
+    where
+        V: MRTreeDefault,  
+{
+    // 四叉树的高度，根节点的高度为0
+    height: u32,
+    areas: Vec<Rect<V, D>>,
+    centers: Vec<Rect<V, D>>,
+    partions: Vec<PartionTree<V, D, C>>,
+    key_2_loc: HashMap<String, (usize, Rect<V, D>)>,
+}
+
+impl<V, const D: usize, const C: usize> PartionManager<V, D, C> 
+    where
+        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
+{
+    /// 二维数据下的区域划分
+    /// y
+    /// | 2   4
+    /// | 1   3
+    /// |_______ x
+    pub fn new(area: Rect<V, D>, height: u32) -> Self {
+        assert_eq!(D, 2, "only support 2-d space now");
+        let partion_cnt = ((4u32.pow(height + 1) - 1) / 3) as usize;
+        let mut areas = Vec::with_capacity(partion_cnt);
+        let mut centers = Vec::with_capacity(partion_cnt);
+        let mut partions = Vec::with_capacity(partion_cnt);
+
+        // 将四叉树根节点（最上层的partion）插入到数组中
+        centers.push(Self::center(&area));
+        areas.push(area.clone());
+        partions.push(PartionTree::new_with_area(area));
+
+        // 处理其他的层
+        for idx in 1..partion_cnt {
+            let remain = idx % 4;
+            let cur_area = match remain {
+                0 => {
+                    let parent = (idx >> 2) - 1;
+                    let min = centers[parent]._max.clone();
+                    let max = areas[parent]._max.clone();
+                    Rect::new(min, max)
+                }
+                1 => {
+                    let parent = idx >> 2;
+                    let min = areas[parent]._min.clone();
+                    let max = centers[parent]._min.clone();
+                    Rect::new(min, max)
+                }
+                2 => {
+                    let parent = idx >> 2;
+                    let mut min = areas[parent]._min.clone();
+                    min[1] = centers[parent]._max[1];
+                    let mut max = centers[parent]._min.clone();
+                    max[1] = areas[parent]._max[1];
+                    Rect::new(min, max)
+                }
+                3 => {
+                    let parent = idx >> 2;
+                    let mut min = centers[parent]._max.clone();
+                    min[1] = areas[parent]._min[1];
+                    let mut max = areas[parent]._max.clone();
+                    max[1] = centers[parent]._min[1];
+                    Rect::new(min, max)
+                }
+                _ => unreachable!()
+            };
+            centers.push(Self::center(&cur_area));
+            areas.push(cur_area.clone());
+            partions.push(PartionTree::new_with_area(cur_area));
+        }
+
+        Self {
+            height,
+            areas,
+            centers,
+            partions,
+            key_2_loc: HashMap::new(),
+        }
+    }
+
+    fn center(rect: &Rect<V, D>) -> Rect<V, D> {
+        let mut c = [V::default(); D];
+        for i in 0..D {
+            c[i] = (rect._max[i] + rect._min[i]) / (V::from_i32(2));
+        }
+        Rect::new_point(c)
+    }
+
+    pub fn print_level_info(&self) {
+        for (idx, rect) in self.areas.iter().enumerate() {
+            println!("{}: {:?}", idx, rect)
+        }
+    }
+
+    fn point_index(&self, point: [V; D]) -> usize {
+        let mut parent = 0usize;
+        for _ in 0..self.height {
+            let mut level_idx = 0usize;
+            for i in 0..D {
+                level_idx = (level_idx << 1) | ((point[i] > self.centers[parent]._max[i]) as usize);
+            }
+            parent = ((parent << 2) | level_idx) + 1;
+        }
+        parent
+    }
+}
 #[cfg(test)]
 mod test {
     use types::hash_value::HashValue;
-    use types::test_utils::{generate_points, num_hash};
+    use types::test_utils::{num_hash};
     use crate::esmtree::PartionTree;
+    use crate::esmtree::PartionManager;
+    use crate::shape::Rect;
 
     #[derive(Debug)]
     enum Operator {
@@ -594,5 +705,18 @@ mod test {
             assert_eq!(tree.root_hash().unwrap(), hash);
             println!("{:?} passed", op);
         }
+    }
+
+    #[test]
+    fn test_merge() {
+
+    }
+
+    #[test]
+    fn test_level_info() {
+        let pm: PartionManager<f32, 2, 3> = PartionManager::new(Rect::new([1.0f32, 3.0f32], [14.0f32, 8.0f32]), 1);
+        pm.print_level_info();
+        assert_eq!(pm.point_index([4.0f32, 3.7]), 1);
+        assert_eq!(pm.point_index([3.7f32, 6.9]), 2);
     }
 }
