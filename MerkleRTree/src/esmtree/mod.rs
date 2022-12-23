@@ -414,7 +414,7 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
     }
 
     // !TODO: test correctness
-    pub fn merge_with_subtree(&mut self, another: &mut PartionTree<V, D, C>) {
+    pub fn merge_with_subtree(&mut self, mut another: PartionTree<V, D, C>) {
         if another.root.is_none() {
             return;
         } else if self.root.is_none() {
@@ -425,8 +425,6 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             self.height = compacted_root.height;
             self.len = another.len;
             self.root = Some(EfficientMRTreeNode::new(compacted_root));
-            another.len = 0;
-            another.height = 0;
             return;
         }
 
@@ -492,8 +490,19 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             self.root = Some(EfficientMRTreeNode::new(new_root));
             self.len += another.len;
         }
-        another.len = 0;
-        another.height = 0;
+    }
+
+    pub fn clear(&mut self) -> PartionTree<V, D, C> {
+        let root = self.root.take();
+        let partion = Self {
+            root,
+            area: self.area.clone(),
+            height: self.height,
+            len: self.len,
+        };
+        self.height = 0;
+        self.len = 0;
+        partion
     }
 
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
@@ -517,67 +526,54 @@ pub struct PartionManager<V, const D: usize, const C: usize>
     areas: Vec<Rect<V, D>>,
     centers: Vec<Rect<V, D>>,
     partions: Vec<PartionTree<V, D, C>>,
-    key_2_loc: HashMap<String, (usize, Rect<V, D>)>,
+    key_2_loc: HashMap<String, (usize, [V; D])>,
 }
 
 impl<V, const D: usize, const C: usize> PartionManager<V, D, C> 
     where
         V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
 {
+    const BASIC_THRESHOLD: usize = 256;
+    const DEGREE: usize = 2usize.pow(D as u32);
     /// 二维数据下的区域划分
     /// y
     /// | 2   4
     /// | 1   3
     /// |_______ x
     pub fn new(area: Rect<V, D>, height: u32) -> Self {
-        assert_eq!(D, 2, "only support 2-d space now");
-        let partion_cnt = ((4u32.pow(height + 1) - 1) / 3) as usize;
+        // assert_eq!(D, 2, "only support 2-d space now");
+        let partion_cnt = ((Self::DEGREE.pow(height + 1) - 1) / (Self::DEGREE - 1)) as usize;
         let mut areas = Vec::with_capacity(partion_cnt);
         let mut centers = Vec::with_capacity(partion_cnt);
         let mut partions = Vec::with_capacity(partion_cnt);
 
-        // 将四叉树根节点（最上层的partion）插入到数组中
+        // 将2^D叉树根节点（最上层的partion）插入到数组中
         centers.push(Self::center(&area));
         areas.push(area.clone());
         partions.push(PartionTree::new_with_area(area));
 
         // 处理其他的层
         for idx in 1..partion_cnt {
-            let remain = idx % 4;
-            let cur_area = match remain {
-                0 => {
-                    let parent = (idx >> 2) - 1;
-                    let min = centers[parent]._max.clone();
-                    let max = areas[parent]._max.clone();
-                    Rect::new(min, max)
+            let parent = (idx - 1) >> D;
+            let par_center = centers[parent]._min.clone();
+            let bits = Self::num_bits((idx - 1) % Self::DEGREE);
+            let mut min = [V::default(); D];
+            let mut max = [V::default(); D];
+            for i in 0..D {
+                if bits[i] == 0 {
+                    min[i] = areas[parent]._min[i];
+                    max[i] = par_center[i];
+                } else {
+                    min[i] = par_center[i];
+                    max[i] = areas[parent]._max[i];
                 }
-                1 => {
-                    let parent = idx >> 2;
-                    let min = areas[parent]._min.clone();
-                    let max = centers[parent]._min.clone();
-                    Rect::new(min, max)
-                }
-                2 => {
-                    let parent = idx >> 2;
-                    let mut min = areas[parent]._min.clone();
-                    min[1] = centers[parent]._max[1];
-                    let mut max = centers[parent]._min.clone();
-                    max[1] = areas[parent]._max[1];
-                    Rect::new(min, max)
-                }
-                3 => {
-                    let parent = idx >> 2;
-                    let mut min = centers[parent]._max.clone();
-                    min[1] = areas[parent]._min[1];
-                    let mut max = areas[parent]._max.clone();
-                    max[1] = centers[parent]._min[1];
-                    Rect::new(min, max)
-                }
-                _ => unreachable!()
-            };
-            centers.push(Self::center(&cur_area));
-            areas.push(cur_area.clone());
-            partions.push(PartionTree::new_with_area(cur_area));
+            }
+            let cur_area = Rect::new(min, max);
+            let cur_center = Self::center(&cur_area);
+            let partion = PartionTree::new_with_area(cur_area.clone());
+            centers.push(cur_center);
+            areas.push(cur_area);
+            partions.push(partion);
         }
 
         Self {
@@ -587,6 +583,16 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
             partions,
             key_2_loc: HashMap::new(),
         }
+    }
+
+    fn num_bits(mut num: usize) -> Vec<usize> {
+        let mut bits = Vec::with_capacity(D);
+        for _ in 0..D {
+            bits.push(num % 2);
+            num >>= 1;
+        }
+        bits.reverse();
+        bits
     }
 
     fn center(rect: &Rect<V, D>) -> Rect<V, D> {
@@ -603,16 +609,70 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
         }
     }
 
-    fn point_index(&self, point: [V; D]) -> usize {
+    fn point_index(&self, point: &[V; D]) -> usize {
         let mut parent = 0usize;
         for _ in 0..self.height {
             let mut level_idx = 0usize;
             for i in 0..D {
                 level_idx = (level_idx << 1) | ((point[i] > self.centers[parent]._max[i]) as usize);
             }
-            parent = ((parent << 2) | level_idx) + 1;
+            parent = ((parent << D) | level_idx) + 1;
         }
         parent
+    }
+
+    pub fn insert(&mut self, key: String, loc:[V; D], hash: HashValue) {
+        let partion_to_insert = self.point_index(&loc);
+        // 将新插入的数据对象添加到表中
+        self.key_2_loc.insert(key.clone(), (partion_to_insert, loc.clone()));
+
+        let cur_partion = partion_to_insert;
+        self.insert_impl(key, loc, hash, cur_partion);
+    }
+
+    fn insert_impl(&mut self, key: String, loc:[V; D], hash: HashValue, index: usize) {
+        // 先处理需要merge的情况
+        self.merge(index, 1);
+        self.partions[index].insert(key, loc, hash);
+    }
+
+    pub fn delete(&mut self, key: &String) -> Option<ObjectEntry<V, D>> {
+        if let Some((idx, oloc)) = self.key_2_loc.remove(key) {
+            self.partions[idx].delete(key, &oloc)
+        } else {
+            None
+        }
+    }
+
+    pub fn update(&mut self, key: &String, nloc: [V; D]) {
+        let nidx = self.point_index(&nloc);
+        let some_data = self.key_2_loc.get(key).map(|(idx, loc)| (*idx, loc.clone()));
+        if let Some((oidx, oloc)) = some_data {
+            // 更新在同一分区中
+            if oidx == nidx {
+                self.partions[nidx].update(key, &oloc, nloc);
+            } else {
+                let obj = self.partions[oidx].delete(key, &oloc).unwrap();
+                self.insert_impl(key.clone(), nloc.clone(), obj.hash(), nidx);
+            }
+            // 更新表中的信息
+            let (idx, loc) = self.key_2_loc.get_mut(key).unwrap();
+            *idx = nidx;
+            *loc = nloc;
+        }
+    }
+
+    fn merge(&mut self, cur_partion: usize, threshold_mul: usize) {
+        // 该partion不需要merge || 该partion是根partion
+        if cur_partion == 0 || self.partions[cur_partion].len() < Self::BASIC_THRESHOLD * threshold_mul {
+            return;
+        }
+        let parent = (cur_partion - 1) >> D;
+        // 先merge上层的partion
+        self.merge(parent, threshold_mul << D);
+        // 把自己merge上去
+        let need_to_merge = self.partions[cur_partion].clear();
+        self.partions[parent].merge_with_subtree(need_to_merge);
     }
 }
 #[cfg(test)]
@@ -716,7 +776,7 @@ mod test {
     fn test_level_info() {
         let pm: PartionManager<f32, 2, 3> = PartionManager::new(Rect::new([1.0f32, 3.0f32], [14.0f32, 8.0f32]), 1);
         pm.print_level_info();
-        assert_eq!(pm.point_index([4.0f32, 3.7]), 1);
-        assert_eq!(pm.point_index([3.7f32, 6.9]), 2);
+        assert_eq!(pm.point_index(&[4.0f32, 3.7]), 1);
+        assert_eq!(pm.point_index(&[3.7f32, 6.9]), 2);
     }
 }

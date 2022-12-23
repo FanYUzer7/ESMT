@@ -175,6 +175,9 @@ impl RemoteProcedure {
         methods.insert("test".to_string(), |cmd, service| {
             test_efficient(cmd, service);
         });
+        methods.insert("bit".to_string(), |cmd, service| {
+            num_bits(cmd, service);
+        });
         methods
     }
 
@@ -227,6 +230,7 @@ fn help(_cmd: Cmd, _service: &mut CliService) {
     println!("pack [tot] [cap]         pack node");
     println!("area [point...]          calculate area");
     println!("update [point] [x] [y]   update point location");
+    println!("bit [num]                update point location");
     println!("quit                     quit the program");
 }
 
@@ -420,4 +424,20 @@ fn test_efficient(cmd: Cmd, service: &mut CliService) {
         println!("{:?}", vec2);
     }
     println!("insert: {}ns, extend: {}ns", dur1 / 1000, dur2 / 1000);
+}
+
+fn num_bits(cmd: Cmd, service: &mut CliService) {
+    let args = cmd.params();
+    let num = usize::from_str(&args[0]).unwrap();
+    let bits = {
+        let mut v = vec![];
+        let mut n = num;
+        for _ in 0..3 {
+            v.push(n % 2);
+            n >>= 1;
+        }
+        v.reverse();
+        v
+    };
+    println!("{:?}",bits);
 }
