@@ -4,5 +4,6 @@ members = [
     "MerkleRTree",
     "feature-test",
     "types",
-    "visual"
+    "visual",
+    "cluster-test"
 ]

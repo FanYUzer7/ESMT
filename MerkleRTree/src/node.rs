@@ -51,6 +51,23 @@ impl ToPrimitive for f32 {
 impl MRTreeDefault for f32{}
 impl MRTreeFunc for f32{}
 
+impl FromPrimitive for f64 {
+    #[inline]
+    fn from_i32(i: i32) -> Self {
+        i as f64
+    }
+}
+
+impl ToPrimitive for f64 {
+    #[inline]
+    fn to_usize(self) -> usize {
+        self as usize
+    }
+}
+
+impl MRTreeDefault for f64{}
+impl MRTreeFunc for f64{}
+
 impl FromPrimitive for i32 {
     #[inline]
     fn from_i32(i: i32) -> Self {
@@ -325,10 +342,14 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
     }
 
     pub fn first_stale(&self) -> Option<usize> {
-        assert_eq!(self.height, 0, "first_stale method can only be called on Leaf node");
+        // assert_eq!(self.height, 0, "first_stale method can only be called on Leaf node");
         for i in 0..self.entry.len() {
-            if self.entry[i].get_object().is_stale() {
-                return Some(i);
+            if self.entry[i].is_object() {
+                if self.entry[i].get_object().is_stale() {
+                    return Some(i);
+                }
+            } else {
+                break;
             }
         }
         None
