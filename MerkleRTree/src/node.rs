@@ -231,42 +231,42 @@ impl<V, const D: usize, const C: usize> ESMTEntry<V, D, C>
         if let Self::ENode(n) = self {
             return n;
         }
-        panic!("[ESMTEntry] expect reference of Node, find ObjectEntry");
+        panic!("[ESMTEntry::unpack] expect reference of Node, find ObjectEntry");
     }
 
     pub fn unpack_object(self) -> ObjectEntry<V, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
-        panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
+        panic!("[ESMTEntry::unpack] expect ObjectEntry, find reference of Node");
     }
 
     pub fn get_node(&self) -> &Node<V, D, C> {
         if let Self::ENode(n) = self {
             return n;
         }
-        panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
+        panic!("[ESMTEntry::get] expect reference of Node, find ObjectEntry");
     }
 
     pub fn get_node_mut(&mut self) -> &mut Node<V, D, C> {
         if let Self::ENode(n) = self {
             return n;
         }
-        panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
+        panic!("[ESMTEntry::get_mut] expect reference of Node, find ObjectEntry");
     }
 
     pub fn get_object(&self) -> &ObjectEntry<V, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
-        panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
+        panic!("[ESMTEntry::get] expect ObjectEntry, find reference of Node");
     }
 
     pub fn get_object_mut(&mut self) -> &mut ObjectEntry<V, D> {
         if let Self::Object(obj) = self {
             return obj;
         }
-        panic!("[ESMTEntry] expect ObjectEntry, find reference of Node");
+        panic!("[ESMTEntry::get_mut] expect ObjectEntry, find reference of Node");
     }
 }
 
