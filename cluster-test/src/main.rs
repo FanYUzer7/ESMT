@@ -2,6 +2,7 @@ use std::{time::{Instant, Duration}, ops::AddAssign, path::PathBuf, str::FromStr
 
 use MerkleRTree::shape::Rect;
 use cluster_test::{ClusterArgs, read_dataset};
+use rand::{thread_rng, Rng};
 use structopt::StructOpt;
 use types::hash_value::HashValue;
 
@@ -50,4 +51,24 @@ fn main() {
         }
         println!("size = {}, avg insert time--> mrt: {}ns, esmt: {}ns", idx + 1, avg_mrt[idx], avg_esmt[idx]);
     }
+
+    let mut query = vec![];
+    let mut rng = thread_rng();
+    for _ in 0..1000 {
+        let x = rng.gen_range(-167.0f64..=-63.0f64);
+        let y = rng.gen_range(21.05f64..=73.4f64);
+        query.push(Rect::new([x-6.5, y-3.275], [x+6.5, y+3.275]));
+    }
+    dur_mrt = Duration::new(0,0);
+    dur_esmt = Duration::new(0,0);
+    for q in &query {
+        let ins_mrt = Instant::now();
+        let _ = mrt.range_query(q);
+        dur_mrt.add_assign(ins_mrt.elapsed());
+
+        let ins_esmt = Instant::now();
+        esmt.range_query(q);
+        dur_esmt.add_assign(ins_esmt.elapsed());
+    }
+    println!("avg query time--> mrt: {}ns, esmt: {}ns", dur_mrt.as_nanos() / 1000, dur_esmt.as_nanos() / 1000);
 }
