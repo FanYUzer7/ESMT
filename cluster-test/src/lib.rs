@@ -16,6 +16,7 @@ pub struct ClusterArgs {
 }
 
 pub fn read_dataset(data_set: &str, path: PathBuf) -> Result<Vec<[f64;2]>, String> {
+    println!("{:?}", std::env::current_exe());
     let file = File::open(path);
     if let Err(e) = file {
         return Err(format!("{:?}", e));

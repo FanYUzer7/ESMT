@@ -1,4 +1,4 @@
-use std::{time::{Instant, Duration}, ops::AddAssign};
+use std::{time::{Instant, Duration}, ops::AddAssign, path::PathBuf, str::FromStr};
 
 use MerkleRTree::shape::Rect;
 use cluster_test::{ClusterArgs, read_dataset};
@@ -7,7 +7,12 @@ use types::hash_value::HashValue;
 
 fn main() {
     let args = ClusterArgs::from_args();
+    println!("{:?}", args.file);
     let data = read_dataset(&args.data_set, args.file.clone());
+    // let data_set = "dcw-p";
+    // let mut file = PathBuf::from_str("../release/data_set/dcw-points/NApppoint.fnl").unwrap();
+    // println!("{:?}", file);
+    // let data = read_dataset(data_set, file);
     if let Err(e) = data {
         println!("{}", e);
         return;
@@ -15,7 +20,7 @@ fn main() {
     
     let data = data.unwrap();
     let mut mrt = MerkleRTree::mrtree::MerkleRTree::<f64, 2, 4>::new();
-    let mut esmt = MerkleRTree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([-180.0f64, 14.5f64], [-50.0f64, 80.0f64]), 1);
+    let mut esmt = MerkleRTree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([-180.0f64, 14.5f64], [-50.0f64, 80.0f64]), 3);
     let mut dur_mrt = Duration::new(0,0);
     let mut dur_esmt = Duration::new(0,0);
     let mut avg_mrt = vec![];

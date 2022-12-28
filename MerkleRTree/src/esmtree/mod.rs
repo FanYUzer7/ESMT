@@ -447,14 +447,34 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
                     ESMTEntry::ENode(small_tree),
                 ]
             );
-            let new_subtree = EfficientMRTreeNode::build_tree(EfficientMRTreeNode::compact(to_compact));
-            if new_subtree.suitable_for_subtree() {
+            let mut new_subtree = EfficientMRTreeNode::build_tree(EfficientMRTreeNode::compact(to_compact));
+            // 根据new_subtree的高度和large_tree的高度要分类讨论
+            if new_subtree.height > large_tree.height {
+                std::mem::swap(&mut large_tree, &mut new_subtree);
+            }
+            if new_subtree.height < large_tree.height && new_subtree.suitable_for_subtree() {
                 reinsert.push_front(ESMTEntry::ENode(new_subtree));
             } else {
                 for ety in new_subtree.entry {
                     reinsert.push_front(ety);
                 }
             }
+
+            // if new_subtree.height < large_tree.height {
+            //     if new_subtree.suitable_for_subtree() {
+            //         reinsert.push_front(ESMTEntry::ENode(new_subtree));
+            //     } else {
+            //         for ety in new_subtree.entry {
+            //             reinsert.push_front(ety);
+            //         }
+            //     }
+            // } else if new_subtree.height == large_tree.height {
+            //     for ety in new_subtree.entry {
+            //         reinsert.push_front(ety);
+            //     }
+            // } else {
+            //     std::mem::swap(&mut large_tree, &mut new_subtree);
+            // }
             // reinsert
             self.height = large_tree.height;
             self.root = Some(EfficientMRTreeNode::new(large_tree));
@@ -527,7 +547,7 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
     where
         V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
 {
-    const BASIC_THRESHOLD: usize = 256;
+    const BASIC_THRESHOLD: usize = 512;
     const DEGREE: usize = 2usize.pow(D as u32);
     /// 二维数据下的区域划分
     /// y

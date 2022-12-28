@@ -1,0 +1,183 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'MerkleRTree'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=MerkleRTree"
+                ],
+                "filter": {
+                    "name": "MerkleRTree",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=types"
+                ],
+                "filter": {
+                    "name": "types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'feature-test'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=feature-test",
+                    "--package=feature-test"
+                ],
+                "filter": {
+                    "name": "feature-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'feature-test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=feature-test",
+                    "--package=feature-test"
+                ],
+                "filter": {
+                    "name": "feature-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'visual'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=visual",
+                    "--package=visual"
+                ],
+                "filter": {
+                    "name": "visual",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'visual'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=visual",
+                    "--package=visual"
+                ],
+                "filter": {
+                    "name": "visual",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'cluster-test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=cluster-test"
+                ],
+                "filter": {
+                    "name": "cluster-test",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'cluster-test'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=cluster-test",
+                    "--package=cluster-test"
+                ],
+                "filter": {
+                    "name": "cluster-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "-d",
+                "dcw-p",
+                "-f",
+                "/home/youya/ESMT/target/release/data_set/dcw-points/NApppoint.fnl",
+                "-o",
+                "./output"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'cluster-test'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=cluster-test",
+                    "--package=cluster-test"
+                ],
+                "filter": {
+                    "name": "cluster-test",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
