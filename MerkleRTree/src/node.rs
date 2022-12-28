@@ -173,6 +173,11 @@ impl<V, const D: usize> ObjectEntry<V, D>
     pub fn match_key(&self, key_2_match: &str) -> bool {
         self.key == key_2_match
     }
+
+    #[inline]
+    pub fn key(&self) -> String {
+        self.key.clone()
+    }
 }
 
 // todo: 返回Result，进行错误处理

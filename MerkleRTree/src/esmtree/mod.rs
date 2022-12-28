@@ -2,7 +2,7 @@ use std::collections::{VecDeque, HashMap};
 use types::hash_value::HashValue;
 use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
-use std::fmt::Debug;
+use crate::verify::{VerifyObject, VerifyObjectEntry, SiblingObject};
 
 struct EfficientMRTreeNode<V, const D: usize, const C: usize>
     where
@@ -276,6 +276,58 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         root.recalculate_state_after_sort();
         root
     }
+
+    pub fn range_query(&self, query: &Rect<V, D>, height: u32) -> VerifyObject<V, D> {
+        Self::range_query_impl(&self.node, query, height)
+    }
+
+    fn range_query_impl(node: &Node<V, D, C>, query: &Rect<V, D>, height: u32) -> VerifyObject<V, D> {
+        let mut vo = VerifyObject::new();
+        if height == 0 {
+            let exist_vec = node.entry.iter()
+                .map(|ety| query.contains(ety.mbr()))
+                .collect::<Vec<_>>();
+            let exist_flag = exist_vec.iter().fold(false, |acc, e| acc || *e);
+            if exist_flag {
+                vo.push(VerifyObjectEntry::LevelBegin);
+                for i in 0..exist_vec.len() {
+                    if exist_vec[i] {
+                        vo.push(VerifyObjectEntry::Target(node.entry[i].get_object().clone()));
+                    } else {
+                        vo.push(VerifyObjectEntry::Sibling(SiblingObject::from(node.entry[i].get_object())));
+                    }
+                }
+                vo.push(VerifyObjectEntry::LevlEnd);
+            }
+        } else {
+            let mut exist_vec = vec![];
+            let mut temp_vo = VerifyObject::new();
+            for ety in node.entry.iter() {
+                if query.intersects(ety.mbr()) {
+                    let sub_vo = Self::range_query_impl(ety.get_node(), query, height - 1);
+                    if sub_vo.is_empty() {
+                        exist_vec.push(false);
+                    } else {
+                        exist_vec.push(true);
+                        temp_vo.extend(sub_vo);
+                    }
+                } else {
+                    exist_vec.push(false);
+                }
+            }
+            if !temp_vo.is_empty() {
+                vo.push(VerifyObjectEntry::LevelBegin);
+                vo.extend(temp_vo);
+                for i in 0..exist_vec.len() {
+                    if !exist_vec[i] {
+                        vo.push(VerifyObjectEntry::Sibling(SiblingObject::from(node.entry[i].get_node())));
+                    }
+                }
+                vo.push(VerifyObjectEntry::LevlEnd);
+            }
+        }
+        vo
+    }
 }
 
 pub struct PartionTree<V, const D: usize, const C: usize> 
@@ -519,6 +571,19 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         partion
     }
 
+    pub fn range_query(&self, query: &Rect<V, D>) -> Option<VerifyObject<V, D>> {
+        if self.root.is_none() {
+            return None;
+        }
+        let root = self.root.as_ref().unwrap();
+        let vo = root.range_query(query, self.height);
+        if vo.is_empty() {
+            None
+        } else {
+            Some(vo)
+        }
+    }
+
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         match &self.root {
             None => {
@@ -687,6 +752,18 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
         // 把自己merge上去
         let need_to_merge = self.partions[cur_partion].clear();
         self.partions[parent].merge_with_subtree(need_to_merge);
+    }
+
+    pub fn range_query(&self, query: &Rect<V, D>) -> Vec<VerifyObject<V, D>> {
+        let mut res = vec![];
+        for p in self.partions.iter() {
+            if p.area.intersects(query) {
+                if let Some(vo) = p.range_query(query) {
+                    res.push(vo);
+                }
+            }
+        }
+        res
     }
 }
 #[cfg(test)]

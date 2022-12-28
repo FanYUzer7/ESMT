@@ -4,3 +4,4 @@ pub mod shape;
 pub mod node;
 pub mod mrtree;
 pub mod esmtree;
+pub mod verify;

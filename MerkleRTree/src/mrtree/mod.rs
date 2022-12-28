@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
+use crate::verify::{VerifyObject, VerifyObjectEntry, SiblingObject};
 
 struct MerkleRTreeNode<V, const D: usize, const C: usize>
     where
@@ -115,6 +116,58 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
                   height: u32,
     ) -> (Option<ESMTEntry<V, D, C>>, bool) {
         Self::delete_by_mrt(&mut self.node, rect, key, reinsert, height)
+    }
+
+    pub fn range_query(&self, query: &Rect<V, D>, height: u32) -> VerifyObject<V, D> {
+        Self::range_query_impl(&self.node, query, height)
+    }
+
+    fn range_query_impl(node: &Node<V, D, C>, query: &Rect<V, D>, height: u32) -> VerifyObject<V, D> {
+        let mut vo = VerifyObject::new();
+        if height == 0 {
+            let exist_vec = node.entry.iter()
+                .map(|ety| query.contains(ety.mbr()))
+                .collect::<Vec<_>>();
+            let exist_flag = exist_vec.iter().fold(false, |acc, e| acc || *e);
+            if exist_flag {
+                vo.push(VerifyObjectEntry::LevelBegin);
+                for i in 0..exist_vec.len() {
+                    if exist_vec[i] {
+                        vo.push(VerifyObjectEntry::Target(node.entry[i].get_object().clone()));
+                    } else {
+                        vo.push(VerifyObjectEntry::Sibling(SiblingObject::from(node.entry[i].get_object())));
+                    }
+                }
+                vo.push(VerifyObjectEntry::LevlEnd);
+            }
+        } else {
+            let mut exist_vec = vec![];
+            let mut temp_vo = VerifyObject::new();
+            for ety in node.entry.iter() {
+                if query.intersects(ety.mbr()) {
+                    let sub_vo = Self::range_query_impl(ety.get_node(), query, height - 1);
+                    if sub_vo.is_empty() {
+                        exist_vec.push(false);
+                    } else {
+                        exist_vec.push(true);
+                        temp_vo.extend(sub_vo);
+                    }
+                } else {
+                    exist_vec.push(false);
+                }
+            }
+            if !temp_vo.is_empty() {
+                vo.push(VerifyObjectEntry::LevelBegin);
+                vo.extend(temp_vo);
+                for i in 0..exist_vec.len() {
+                    if !exist_vec[i] {
+                        vo.push(VerifyObjectEntry::Sibling(SiblingObject::from(node.entry[i].get_node())));
+                    }
+                }
+                vo.push(VerifyObjectEntry::LevlEnd);
+            }
+        }
+        vo
     }
 
     #[inline]
@@ -324,6 +377,19 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
         }
     }
 
+    pub fn range_query(&self, query: &Rect<V, D>) -> Option<VerifyObject<V, D>> {
+        if self.root.is_none() {
+            return None;
+        }
+        let root = self.root.as_ref().unwrap();
+        let vo = root.range_query(query, self.height);
+        if vo.is_empty() {
+            None
+        } else {
+            Some(vo)
+        }
+    }
+
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         match &self.root {
             None => {
@@ -464,5 +530,53 @@ mod test {
             assert_eq!(expected_hash, tree.root_hash().unwrap());
             println!("test-del-{} pass", i);
         }
+    }
+
+    #[test]
+    fn test_query() {
+        let points = vec![
+            [1usize, 6],
+            [0, 5],
+            [3, 2],
+            [4, 5],
+            [8, 5],
+            [2, 8],
+            [2, 3],
+            [6, 7],
+            [8, 0],
+            [1, 1]
+        ];
+        let hash_str = vec![
+            "5b4d6fe0dd8fd7bc6de264d7c3db3ed25ae1306dbdf20843e91acaaf8b6728f5".to_string(), // i 0
+            "8186e82dd80cce7b15828191c85bf1f128bd6e1168f670361a65c9b14cd7b06d".to_string(), // i 1
+            "8d015b832a692a90b69409c6bdabcd122c05f198306dd481bf380c0a1d817e66".to_string(), // i 2
+            "0bd13fbae340f13bc8580b2d777c5393652a2e4fce220bb618b156b8cf97b90f".to_string(), // i 3
+            "7b5b68e400187a7c07f1af2043315dee22517f0919cfd1df1b21a319b0bb04e4".to_string(), // i 4
+            "902d1aaa9fdedf73a5cb2e289a941d7baed0db1263581e50e09643494c0b917d".to_string(), // i 5
+            "0af2fb57bcc0d167b87d4ac94cb22ae1e977d788225f6dc6cff8d2337a4fa572".to_string(), // i 6
+            "6fb829122401c6d92d7d860aa6f6329e2d8202d63259c27a6cd819f753ebad7d".to_string(), // i 7
+            "48e1e65014f7ea6e53398dc8718e7d10c98cc1f93e87f941d64336a548b9f65a".to_string(), // i 8
+            "2b3e36e150217da8d4fa8466dbbcbc8b4c2fc9822120d2d992639fada09dcc43".to_string(), // i 9
+        ];
+        let root_hashes = hash_str.into_iter()
+            .map(|s| HashValue::from_slice(&hex::decode(s).unwrap()).unwrap())
+            .collect::<Vec<_>>();
+        let mut tree = Tree::<UnsignedInteger, 2, 3>::new();
+        for (idx, p) in points.iter().enumerate() {
+            tree.insert(format!("key-{}", idx), p.clone(), num_hash(idx as i32));
+            assert_eq!(tree.root_hash().unwrap(), root_hashes[idx]);
+            println!("test-{} pass", idx);
+        }
+        let query1 = Rect::new([5usize, 1],[7usize, 6]);
+        let vo1 = tree.range_query(&query1);
+        assert_eq!(vo1.is_none(), true);
+
+        let query2 = Rect::new([3usize, 3],[7usize, 4]);
+        let vo2 = tree.range_query(&query2);
+        assert_eq!(vo2.is_none(), true);
+
+        let query3 = Rect::new([3usize, 4],[7usize, 8]);
+        let vo3 = tree.range_query(&query3).unwrap();
+        vo3.display();
     }
 }
