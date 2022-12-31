@@ -11,3 +11,10 @@ chrono = "0.4.19"
 types = { path = "../types", version = "0.1.0" }
 structopt = "0.3"
 rand = "0.8.5"
+
+[dev-dependencies]
+criterion = "0.4.0"
+
+[[bench]]
+name = "continuous_insert"
+harness = false

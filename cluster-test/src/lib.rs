@@ -2,6 +2,7 @@ use std::{path::PathBuf, fs::File, io::{BufReader, BufRead}};
 use std::str::FromStr;
 use structopt::StructOpt;
 
+pub mod utils;
 
 #[derive(StructOpt, Debug)]
 pub struct ClusterArgs {
@@ -38,7 +39,7 @@ pub fn read_dataset(data_set: &str, path: PathBuf) -> Result<Vec<[f64;2]>, Strin
     data.ok_or("something error".to_string())
 }
 
-fn read_dcw_lines(file: File) -> Vec<[f64; 2]> {
+fn read_dcw_lines(_file: File) -> Vec<[f64; 2]> {
     vec![]
 }
 
@@ -61,5 +62,19 @@ fn read_dcw_points(file: File) -> Vec<[f64; 2]> {
 }
 
 fn read_imis(file: File) -> Vec<[f64; 2]> {
-    vec![]
+    let mut data = vec![];
+    let buffered = BufReader::new(file);
+    for line in buffered.lines().skip(1) {
+        if line.is_err() {
+            break;
+        }
+        let line = line.unwrap();
+        let args = line
+            .split(",")
+            .map(|p| p.trim())
+            .collect::<Vec<_>>();
+        let point = [f64::from_str(args[3]).unwrap(), f64::from_str(args[4]).unwrap()];
+        data.push(point);
+    }
+    data
 }
