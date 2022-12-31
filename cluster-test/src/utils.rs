@@ -276,8 +276,8 @@ impl ESMTreeBuilder {
     }
 
     #[inline]
-    pub fn range(mut self, r: Rect<f64, 2>) -> Self {
-        self.range = r;
+    pub fn range(mut self, min: [f64; 2], max: [f64; 2]) -> Self {
+        self.range = Rect::new(min, max);
         self
     }
 

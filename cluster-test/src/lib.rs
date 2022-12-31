@@ -17,7 +17,7 @@ pub struct ClusterArgs {
 }
 
 pub fn read_dataset(data_set: &str, path: PathBuf) -> Result<Vec<[f64;2]>, String> {
-    println!("{:?}", std::env::current_exe());
+    // println!("{:?}", std::env::current_exe());
     let file = File::open(path);
     if let Err(e) = file {
         return Err(format!("{:?}", e));
@@ -62,19 +62,34 @@ fn read_dcw_points(file: File) -> Vec<[f64; 2]> {
 }
 
 fn read_imis(file: File) -> Vec<[f64; 2]> {
+    let (mut min_x, mut min_y) = (f64::MAX, f64::MAX);
+    let (mut max_x, mut max_y) = (f64::MIN, f64::MIN);
     let mut data = vec![];
     let buffered = BufReader::new(file);
-    for line in buffered.lines().skip(1) {
+    for line in buffered.lines() {
         if line.is_err() {
             break;
         }
         let line = line.unwrap();
         let args = line
             .split(",")
-            .map(|p| p.trim())
             .collect::<Vec<_>>();
-        let point = [f64::from_str(args[3]).unwrap(), f64::from_str(args[4]).unwrap()];
+        let x = f64::from_str(args[0]).unwrap();
+        let y = f64::from_str(args[1]).unwrap();
+        if x > max_x {
+            max_x = x;
+        } else if x < min_x {
+            min_x = x;
+        }
+        if y > max_y {
+            max_y = y;
+        } else if y < min_y {
+            min_y = y;
+        }
+        let point = [x, y];
         data.push(point);
     }
+    // min: [20.9999999936125, 35.0000449930892], max: [28.9999499908944, 38.9999999852576]
+    // println!("data set range--> min: {:?}, max: {:?}", [min_x, min_y], [max_x, max_y]);
     data
 }
