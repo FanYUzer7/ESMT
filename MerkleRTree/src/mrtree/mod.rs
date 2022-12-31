@@ -341,7 +341,7 @@ impl<V, const D: usize, const C: usize> MerkleRTree<V, D, C>
             }
             // reinsert
             if !reinsert.is_empty() {
-                println!("need re-insert");
+                // println!("need re-insert");
                 self.reinsert(reinsert);
             }
             removed.map(|entry| entry.unpack_object())
