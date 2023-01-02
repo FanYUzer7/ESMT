@@ -291,6 +291,7 @@ fn sort(cmd: Cmd, service: &mut CliService) {
                             range_set.push(stack.pop().unwrap());
                         } else {
                             brack_cnt -= 1;
+                            let _ = brack_cnt;
                             break;
                         }
                     }
