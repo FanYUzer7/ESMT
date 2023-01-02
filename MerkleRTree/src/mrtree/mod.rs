@@ -1,6 +1,5 @@
-use std::collections::BTreeSet;
-use types::hash_value::{ESMTHasher, HashValue};
-use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
+use types::hash_value::{HashValue};
+use crate::node::{ESMTEntry, FromPrimitive, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
 use crate::verify::{VerifyObject, VerifyObjectEntry, SiblingObject};
 
@@ -420,9 +419,9 @@ mod test {
     use std::time::Instant;
     use crate::shape::Rect;
     use rand::{thread_rng, Rng};
-    use types::hash_value::{ESMTHasher, HashValue};
+    use types::hash_value::{HashValue};
     use types::test_utils::{calc_hash, num_hash};
-    use crate::node::{ESMTEntry, HilbertSorter, Integer, Node, ObjectEntry, UnsignedInteger};
+    use crate::node::{ESMTEntry, HilbertSorter, Integer,ObjectEntry, UnsignedInteger};
     use crate::mrtree::MerkleRTree as Tree;
 
     #[test]

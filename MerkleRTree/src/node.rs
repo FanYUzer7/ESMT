@@ -199,17 +199,6 @@ impl<V, const D: usize, const C: usize> ESMTEntry<V, D, C>
         false
     }
 
-    pub fn hash(&self) -> HashValue {
-        match self {
-            ESMTEntry::ENode(n) => {
-                n.hash()
-            }
-            ESMTEntry::Object(o) => {
-                o.hash()
-            }
-        }
-    }
-
     pub fn hash_ref(&self) -> &[u8; HashValue::LENGTH] {
         match self {
             ESMTEntry::ENode(n) => {
@@ -281,15 +270,6 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
 {
     pub const CAPACITY: usize = C;
     pub const MIN_FANOUT: usize = (Self::CAPACITY + 1) >> 1;
-
-    pub fn new() -> Self {
-        Self {
-            height: 0,
-            mbr: Rect::default(),
-            hash: HashValue::default(),
-            entry: vec![],
-        }
-    }
 
     pub fn new_with_height(height: u32) -> Self {
         Self {
@@ -542,7 +522,7 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
         indexed.sort_by(|a, b| a.0.cmp(&b.0));
         // discard index
         indexed.into_iter()
-            .map(|(hi, e)| {
+            .map(|(_hi, e)| {
                 // println!("{}, loc: {:?}", hi, center(e.mbr()));
                 e
             })

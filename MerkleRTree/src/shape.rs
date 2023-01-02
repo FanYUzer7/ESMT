@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -31,16 +30,6 @@ fn max<V: PartialOrd>(a: V, b: V) -> V {
         a
     } else {
         b
-    }
-}
-
-fn compare<V: PartialOrd>(a: V, b: V) -> Ordering {
-    if a < b {
-        Ordering::Less
-    } else if a > b {
-        Ordering::Greater
-    } else {
-        Ordering::Equal
     }
 }
 

@@ -70,7 +70,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
     }
 
     /// 删除时设置stale, 不需要重新计算哈希和mbr
-    fn delete_by_esmt(node: &mut Node<V, D, C>,
+    fn _delete_by_esmt(node: &mut Node<V, D, C>,
                       rect: &Rect<V, D>,
                       key: &str,
                       height: u32,
@@ -91,7 +91,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
                 let child = node.entry[i].get_node_mut();
                 // let (removed, mut recalced) = node.delete_by_mrt(rect, key, reinsert, height - 1);
                 let removed =
-                    Self::delete_by_esmt(child, rect, key, height - 1);
+                    Self::_delete_by_esmt(child, rect, key, height - 1);
                 if removed.is_none() {
                     continue;
                 }
@@ -246,7 +246,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         let mut objs = vec![];
         queue.push_back(root);
         while !queue.is_empty() {
-            let mut node =queue.pop_front().unwrap();
+            let node =queue.pop_front().unwrap();
             if node.height == 0 {
                 objs.extend(node.entry
                     .into_iter()
@@ -266,7 +266,6 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
 
     fn build_tree(mut objs: Vec<ESMTEntry<V, D, C>>) -> Node<V, D, C> {
         let cap = Node::<V, D, C>::CAPACITY;
-        let min_fanout = Node::<V, D, C>::MIN_FANOUT;
         let mut height = 0u32;
         while objs.len() > cap {
             objs = Self::pack_node(objs, height);
@@ -817,6 +816,7 @@ mod test {
             Operator::Update(1),
             Operator::Update(0),
             Operator::Merge,
+            Operator::Delete(1)
         ];
         let hash_str = vec![
             "5b4d6fe0dd8fd7bc6de264d7c3db3ed25ae1306dbdf20843e91acaaf8b6728f5".to_string(), // i 0
@@ -839,7 +839,7 @@ mod test {
             .map(|s| HashValue::from_slice(&hex::decode(s).unwrap()).unwrap())
             .collect::<Vec<_>>();
         let mut tree = PartionTree::<usize, 2, 3>::new();
-        for (idx,(op,hash)) in ops.into_iter().zip(root_hashes.into_iter()).enumerate() {
+        for (op,hash) in ops.into_iter().zip(root_hashes.into_iter()) {
             match op {
                 Operator::Insert(i) => {
                     tree.insert(format!("testkey-{}",i), points[i].clone(), num_hash(i as i32));

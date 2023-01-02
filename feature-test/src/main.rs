@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::{Instant};
 use rand::{Rng, thread_rng};
 use types::hash_value::{HashValue};
 use MerkleRTree::node::{HilbertSorter};
@@ -398,7 +398,7 @@ fn update(cmd: Cmd, service: &mut CliService) {
     println!("point {}: {:?} ---> {:?}",p, old,[x,y]);
 }
 
-fn test_efficient(cmd: Cmd, service: &mut CliService) {
+fn test_efficient(cmd: Cmd, _service: &mut CliService) {
     let args = cmd.params();
     let num = i32::from_str(&args[0]).unwrap();
 
@@ -431,7 +431,7 @@ fn test_efficient(cmd: Cmd, service: &mut CliService) {
     println!("insert: {}ns, extend: {}ns", dur1 / 1000, dur2 / 1000);
 }
 
-fn num_bits(cmd: Cmd, service: &mut CliService) {
+fn num_bits(cmd: Cmd, _service: &mut CliService) {
     let args = cmd.params();
     let num = usize::from_str(&args[0]).unwrap();
     let bits = {

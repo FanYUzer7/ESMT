@@ -179,7 +179,7 @@ impl<V, const D: usize> VerifyObject<V, D>
                     if res_mbr.is_none() {
                         res_mbr = Some(target.loc().clone());
                     } else {
-                        let mut r = res_mbr.as_mut().unwrap();
+                        let r = res_mbr.as_mut().unwrap();
                         r.expand(target.loc());
                     }
                 },

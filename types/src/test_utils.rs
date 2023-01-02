@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::ops::Range;
 use rand::{Rng, thread_rng};
 use crate::hash_value::{ESMTHasher, HashValue};
 
