@@ -4,7 +4,7 @@ use glium::glutin::event_loop::EventLoop;
 use glium::glutin::window::WindowBuilder;
 use glium::glutin::event::Event;
 use rand::{Rng, thread_rng};
-use MerkleRTree::shape::Rect;
+use authentic_rtree::shape::Rect;
 use types::hash_value::HashValue;
 
 #[derive(Copy, Clone)]
@@ -86,7 +86,7 @@ fn main() {
     let events_loop = EventLoop::new();
     let window = WindowBuilder::new();
     let context = glium::glutin::ContextBuilder::new();
-    let display = glium::Display::new(window, context, &events_loop).unwrap();
+    let display = Display::new(window, context, &events_loop).unwrap();
 
     let vertex_shader_src = r#"
         #version 140
@@ -108,11 +108,11 @@ fn main() {
         }
     "#;
 
-    let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src,
+    let program = Program::from_source(&display, vertex_shader_src, fragment_shader_src,
                                               None).unwrap();
 
-    //let mut tree = MerkleRTree::mrtree::MerkleRTree::<f32, 2, 4>::new();
-    let mut tree = MerkleRTree::esmtree::PartionTree::<f32, 2, 4>::new();
+    //let mut tree = authentic_rtree::mrtree::authentic_rtree::<f32, 2, 4>::new();
+    let mut tree = authentic_rtree::esmtree::PartionTree::<f32, 2, 4>::new();
     let mut rng = thread_rng();
     let mut nodes = vec![];
     let mut objs = vec![];
@@ -143,7 +143,7 @@ fn main() {
                         (nodes, objs) = tree.display();
                         modified = true;
                     } else if input.scancode == 19 && input.state == ElementState::Released {
-                        tree = MerkleRTree::esmtree::PartionTree::<f32, 2, 4>::new();
+                        tree = authentic_rtree::esmtree::PartionTree::<f32, 2, 4>::new();
                         nodes.clear();
                         objs.clear();
                         inserted_object.clear();

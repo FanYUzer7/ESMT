@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "MerkleRTree",
+    "authentic_rtree",
     "feature-test",
     "types",
     "visual",

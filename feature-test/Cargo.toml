@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-MerkleRTree = { path = "../MerkleRTree", version = "0.1.0" }
+authentic_rtree = { path = "../authentic_rtree", version = "0.1.0" }
 chrono = "0.4.19"
 types = { path = "../types", version = "0.1.0" }
 rand = "0.8.5"

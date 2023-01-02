@@ -1,4 +1,4 @@
-use MerkleRTree::shape::Rect;
+use authentic_rtree::shape::Rect;
 use cluster_test::{ClusterArgs, read_dataset};
 use structopt::StructOpt;
 
@@ -13,12 +13,12 @@ fn main() {
     
     let data = data.unwrap();
     println!("data length = {}", data.len());
-    // let mut mrt = MerkleRTree::mrtree::MerkleRTree::<f64, 2, 4>::new();
-    // let mut esmt = MerkleRTree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([-180.0f64, 14.5f64], [-50.0f64, 80.0f64]), 4);
+    // let mut mrt = authentic_rtree::mrtree::authentic_rtree::<f64, 2, 4>::new();
+    // let mut esmt = authentic_rtree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([-180.0f64, 14.5f64], [-50.0f64, 80.0f64]), 4);
     let esmt = if &args.data_set == "imis" {
-        MerkleRTree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([20.9999999936125, 35.0000449930892], [28.9999499908944, 38.9999999852576]), 4)
+        authentic_rtree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([20.9999999936125, 35.0000449930892], [28.9999499908944, 38.9999999852576]), 4)
     } else {
-        MerkleRTree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([0.0, 0.0], [160.0, 160.0]), 4)
+        authentic_rtree::esmtree::PartionManager::<f64, 2, 4>::new(Rect::new([0.0, 0.0], [160.0, 160.0]), 4)
     };
     {
         let mut p = Vec::from([0; 256]);

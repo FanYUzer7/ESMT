@@ -18,7 +18,7 @@ pub fn calc_hash(set: &BTreeSet<HashValue>) -> HashValue {
 
 pub fn generate_points<V, const D: usize>(min: [V; D], max: [V; D], cnt: usize) -> Vec<[V; D]>
     where
-        V: Default + Copy + rand::distributions::uniform::SampleUniform + std::cmp::PartialOrd,
+        V: Default + Copy + rand::distributions::uniform::SampleUniform + PartialOrd,
 {
     let mut rand = thread_rng();
     let mut points = vec![];

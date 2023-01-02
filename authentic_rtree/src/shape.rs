@@ -4,7 +4,7 @@ use std::ops::{Add, Div, Mul, Sub};
 /// 自定义类型V的D维的矩形
 ///
 /// ```rust
-/// use MerkleRTree::shape::Rect;
+/// use authentic_rtree::shape::Rect;
 /// let mut r = Rect::new([1,2], [3,4]);
 /// println!("{:?}", r)
 /// ```

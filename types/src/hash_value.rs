@@ -105,7 +105,7 @@ impl AsRef<[u8; HashValue::LENGTH]> for HashValue {
 }
 
 
-/// MerkleRTree Node HAasher
+/// authentic_rtree Node HAasher
 pub struct ESMTHasher {
     hasher: Sha3,
 }

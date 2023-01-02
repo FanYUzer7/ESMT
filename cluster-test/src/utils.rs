@@ -1,5 +1,5 @@
 use std::collections::{HashMap};
-use MerkleRTree::{mrtree::MerkleRTree as MRTree, shape::Rect, esmtree::PartionManager};
+use authentic_rtree::{mrtree::MerkleRTree as MRTree, shape::Rect, esmtree::PartionManager};
 use rand::{thread_rng, seq::SliceRandom, distributions::Uniform, prelude::Distribution};
 use types::hash_value::{HashValue, ESMTHasher};
 

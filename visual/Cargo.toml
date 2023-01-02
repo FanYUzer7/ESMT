@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 glium = "*"
-MerkleRTree = { path = "../MerkleRTree", version = "0.1.0" }
+authentic_rtree = { path = "../authentic_rtree", version = "0.1.0" }
 rand = "0.8.5"
 types = { path = "../types", version = "0.1.0" }
