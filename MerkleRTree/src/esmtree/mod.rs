@@ -732,7 +732,8 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
                 self.partions[nidx].update(key, &oloc, nloc);
             } else {
                 let obj = self.partions[oidx].delete(key, &oloc).unwrap();
-                self.insert_impl(key.clone(), nloc.clone(), obj.hash(), nidx);
+                // self.insert_impl(key.clone(), nloc.clone(), obj.hash(), nidx);
+                self.partions[nidx].insert(key.clone(), nloc.clone(), obj.hash());
             }
             // 更新表中的信息
             let (idx, loc) = self.key_2_loc.get_mut(key).unwrap();

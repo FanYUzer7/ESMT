@@ -206,7 +206,7 @@ impl MRTreeBuilder {
 }
 
 impl MRTreeTestManager {
-    pub fn exec(self) {
+    pub fn exec(self) -> MRTree<f64, 2, 4> {
         let mut keymap = self.keymap;
         let mut tree = self.tree;
         for opt in self.data {
@@ -230,6 +230,7 @@ impl MRTreeTestManager {
                 },
             }
         }
+        tree
     }
 }
 
@@ -424,7 +425,7 @@ impl ESMTreeBuilder {
 }
 
 impl ESMTreeTestManager {
-    pub fn exec(self) {
+    pub fn exec(self) -> PartionManager<f64, 2, 4> {
         let mut tree = self.tree;
         for opt in self.data {
             match opt {
@@ -442,5 +443,6 @@ impl ESMTreeTestManager {
                 },
             }
         }
+        tree
     }
 }
