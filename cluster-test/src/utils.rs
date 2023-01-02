@@ -251,7 +251,7 @@ impl ESMTreeBuilder {
         Self {
             base: 1000,
             q_size: 100,
-            p_height: 3,
+            p_height: 4,
             range: Rect { _max: [0.0, 0.0], _min: [100.0, 100.0] },
             data: vec![],
         }

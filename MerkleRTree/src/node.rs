@@ -300,15 +300,6 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         }
     }
 
-    pub fn new_with_entry(height: u32, entry: Vec<ESMTEntry<V, D, C>>) -> Self {
-        Self {
-            height,
-            mbr: Rect::default(),
-            hash: HashValue::default(),
-            entry,
-        }
-    }
-
     #[inline]
     pub fn hash(&self) -> HashValue {
         self.hash
@@ -391,6 +382,17 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
     where
         V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
 {
+    pub fn new_with_entry(height: u32, entry: Vec<ESMTEntry<V, D, C>>) -> Self {
+        let mut node = Self {
+            height,
+            mbr: Rect::default(),
+            hash: HashValue::default(),
+            entry,
+        };
+        node.recalculate_mbr();
+        node
+    }
+
     pub fn choose_least_enlargement(&self, rect: &Rect<V, D>) -> usize {
         if D == 0 {
             return 0_usize;
@@ -525,6 +527,9 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
         x = x - (x >> 3);
         y = y - (y >> 3);
         let idx = (y << 3) | x;
+        if idx >= 64 {
+            println!("lowbound: {:?}, range: {:?}, center: {:?}", self.lowbound, self.range, obj_c);
+        }
         _HILBERT3[idx]
     }
 

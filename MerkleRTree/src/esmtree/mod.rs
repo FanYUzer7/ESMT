@@ -612,7 +612,7 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
     where
         V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
 {
-    const BASIC_THRESHOLD: usize = 512;
+    const BASIC_THRESHOLD: usize = 1024;
     const DEGREE: usize = 2usize.pow(D as u32);
     /// 二维数据下的区域划分
     /// y
@@ -688,7 +688,7 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
         }
     }
 
-    fn point_index(&self, point: &[V; D]) -> usize {
+    pub fn point_index(&self, point: &[V; D]) -> usize {
         let mut parent = 0usize;
         for _ in 0..self.height {
             let mut level_idx = 0usize;
@@ -748,7 +748,7 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
         }
         let parent = (cur_partion - 1) >> D;
         // 先merge上层的partion
-        self.merge(parent, threshold_mul << D);
+        self.merge(parent, threshold_mul << (D + D));
         // 把自己merge上去
         let need_to_merge = self.partions[cur_partion].clear();
         self.partions[parent].merge_with_subtree(need_to_merge);
