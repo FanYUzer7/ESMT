@@ -60,7 +60,7 @@ pub fn after_insert_test(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
-                    MRTreeBuilder::new().base_size(*i).set_testset(&data).build_update_test(0.0)
+                    MRTreeBuilder::new().base_size(*i).set_testset(&data).build_update_test(1.0)
                 }, 
                 |mrt| {
                     mrt.exec()
@@ -73,11 +73,11 @@ pub fn after_insert_test(c: &mut Criterion) {
                     if DATASET == "imis" {
                         ESMTreeBuilder::new().base_size(*i)
                         .range([20.9999999936125, 35.0000449930892], [28.9999499908944, 38.9999999852576])
-                        .set_testset(&data).build_update_test(0.0)
+                        .set_testset(&data).build_update_test(1.0)
                     } else {
                         ESMTreeBuilder::new().base_size(*i)
                         .range([0.0, 0.0], [160.0, 160.0])
-                        .set_testset(&data).build_update_test(0.0)
+                        .set_testset(&data).build_update_test(1.0)
                     }
                 }, 
                 |esmt| {
@@ -144,7 +144,7 @@ pub fn update_full_test(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
-                    MRTreeBuilder::new().base_size(*i).set_testset(&data).build_update_test(1.0)
+                    MRTreeBuilder::new().base_size(*i).set_testset(&data).build_update_test(0.0)
                 }, 
                 |mrt| {
                     mrt.exec()
@@ -157,11 +157,11 @@ pub fn update_full_test(c: &mut Criterion) {
                     if DATASET == "imis" {
                         ESMTreeBuilder::new().base_size(*i)
                         .range([20.9999999936125, 35.0000449930892], [28.9999499908944, 38.9999999852576])
-                        .set_testset(&data).build_update_test(1.0)
+                        .set_testset(&data).build_update_test(0.0)
                     } else {
                         ESMTreeBuilder::new().base_size(*i)
                         .range([0.0, 0.0], [160.0, 160.0])
-                        .set_testset(&data).build_update_test(1.0)
+                        .set_testset(&data).build_update_test(0.0)
                     }
                 }, 
                 |esmt| {
