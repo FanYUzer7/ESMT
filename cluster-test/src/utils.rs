@@ -12,7 +12,7 @@ pub enum TreeOpt {
 
 pub struct MRTreeTestManager {
     pub data: Vec<TreeOpt>,
-    pub tree: MRTree<f64, 2, 4>,
+    pub tree: MRTree<f64, 2, 51>,
     pub keymap: HashMap<String, [f64; 2]>,
 }
 
@@ -206,7 +206,7 @@ impl MRTreeBuilder {
 }
 
 impl MRTreeTestManager {
-    pub fn exec(self) -> MRTree<f64, 2, 4> {
+    pub fn exec(self) -> MRTree<f64, 2, 51> {
         let mut keymap = self.keymap;
         let mut tree = self.tree;
         for opt in self.data {
@@ -236,7 +236,7 @@ impl MRTreeTestManager {
 
 pub struct ESMTreeTestManager {
     pub data: Vec<TreeOpt>,
-    pub tree: PartionManager<f64, 2, 4>,
+    pub tree: PartionManager<f64, 2, 51>,
 }
 
 pub struct ESMTreeBuilder {
@@ -425,7 +425,7 @@ impl ESMTreeBuilder {
 }
 
 impl ESMTreeTestManager {
-    pub fn exec(self) -> PartionManager<f64, 2, 4> {
+    pub fn exec(self) -> PartionManager<f64, 2, 51> {
         let mut tree = self.tree;
         for opt in self.data {
             match opt {

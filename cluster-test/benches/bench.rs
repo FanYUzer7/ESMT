@@ -13,7 +13,7 @@ pub fn continuous_insert_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("Continuous-Insert");
     group.sample_size(10);
     // group.plot_config(PlotConfiguration::default().summary_scale(criterion::AxisScale::Logarithmic));
-    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 1024000].iter() {
+    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
@@ -55,7 +55,7 @@ pub fn after_insert_test(c: &mut Criterion) {
     };
     let mut group = c.benchmark_group("After-Insert");
     group.sample_size(10);
-    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 1024000].iter() {
+    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
@@ -97,7 +97,7 @@ pub fn delete_test(c: &mut Criterion) {
     };
     let mut group = c.benchmark_group("Delete");
     group.sample_size(10);
-    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 1024000].iter() {
+    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
@@ -139,8 +139,8 @@ pub fn update_full_test(c: &mut Criterion) {
     };
     let mut group = c.benchmark_group("Update-full");
     group.sample_size(10);
-    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 1024000].iter() {
-    // for i in [1000usize, 2000, 4000].iter() {
+    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
+    // for i in [256000usize].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
@@ -181,7 +181,7 @@ pub fn range_query_test(c: &mut Criterion) {
     };
     let mut group = c.benchmark_group("Range-query");
     group.sample_size(10);
-    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 1024000].iter() {
+    for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(

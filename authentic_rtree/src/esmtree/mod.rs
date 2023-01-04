@@ -1,4 +1,4 @@
-use std::collections::{VecDeque, HashMap};
+use std::collections::{VecDeque, HashMap, HashSet};
 use types::hash_value::HashValue;
 use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
@@ -337,6 +337,7 @@ pub struct PartionTree<V, const D: usize, const C: usize>
     area: Rect<V, D>,
     height: u32,
     len: usize,
+    keys: HashSet<String>,
 }
 
 impl<V, const D: usize, const C: usize> PartionTree<V, D, C> 
@@ -348,7 +349,8 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             root: None,
             area: Rect::default(),
             height: 0,
-            len: 0
+            len: 0,
+            keys: HashSet::new(),
         }
     }
 
@@ -357,7 +359,8 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             root: None,
             area,
             height: 0,
-            len: 0
+            len: 0,
+            keys: HashSet::new(),
         }
     }
 
@@ -387,14 +390,20 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         }
     }
 
+    #[inline]
+    pub fn contains(&self, key: &String) -> bool {
+        self.keys.contains(key)
+    }
+
     pub fn insert(&mut self, key: String, loc:[V; D], hash: HashValue) {
         if self.root.is_none() {
             self.root = Some(EfficientMRTreeNode::new_with_height(0));
         }
-        let obj = ESMTEntry::Object(ObjectEntry::new(key, loc, hash));
+        let obj = ESMTEntry::Object(ObjectEntry::new(key.clone(), loc, hash));
         let obj_loc = obj.mbr().clone();
         self.insert_impl(obj, &obj_loc, self.height);
         self.len += 1;
+        self.keys.insert(key);
     }
 
     fn insert_impl(&mut self, entry: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
@@ -423,12 +432,14 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
                 return None;
             }
             self.len -= 1;
+            self.keys.remove(key);
             entry.map(|e| e.unpack_object())
         } else {
             None
         }
     }
 
+    /// assert key exist in the partion
     pub fn update(&mut self, key: &str, oloc: &[V; D], nloc: [V; D]) {
         if let Some(root) = &mut self.root {
             let orect = Rect::new_point(oloc.clone());
@@ -470,6 +481,7 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             self.height = compacted_root.height;
             self.len = another.len;
             self.root = Some(EfficientMRTreeNode::new(compacted_root));
+            self.keys = another.keys;
             return;
         }
 
@@ -542,6 +554,7 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             }
             // update metadate
             self.len += another.len;
+            self.keys.extend(another.keys);
         } else { // 高度相同
             let to_compact = Node::new_with_entry(
                 small_tree.height + 1,
@@ -554,16 +567,20 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             self.height = new_root.height;
             self.root = Some(EfficientMRTreeNode::new(new_root));
             self.len += another.len;
-        }
+            self.keys.extend(another.keys);
+        }    
     }
 
     pub fn clear(&mut self) -> PartionTree<V, D, C> {
         let root = self.root.take();
+        let mut keys = HashSet::new();
+        std::mem::swap(&mut keys, &mut self.keys);
         let partion = Self {
             root,
             area: self.area.clone(),
             height: self.height,
             len: self.len,
+            keys: keys,
         };
         self.height = 0;
         self.len = 0;
@@ -604,7 +621,7 @@ pub struct PartionManager<V, const D: usize, const C: usize>
     areas: Vec<Rect<V, D>>,
     centers: Vec<Rect<V, D>>,
     partions: Vec<PartionTree<V, D, C>>,
-    key_2_loc: HashMap<String, (usize, [V; D])>,
+    key_2_loc: HashMap<String, [V; D]>,
 }
 
 impl<V, const D: usize, const C: usize> PartionManager<V, D, C> 
@@ -699,13 +716,25 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
         parent
     }
 
+    /// assert key exist
+    fn get_pindex_with_key(&self, key: &String) -> Option<usize> {
+        if let Some(loc) = self.key_2_loc.get(key) {
+            let mut idx = self.point_index(loc);
+            while !self.partions[idx].contains(key) {
+                idx = (idx - 1) >> D;
+            }
+            Some(idx)
+        } else {
+            None
+        }
+    }
+
     pub fn insert(&mut self, key: String, loc:[V; D], hash: HashValue) {
         let partion_to_insert = self.point_index(&loc);
         // 将新插入的数据对象添加到表中
-        self.key_2_loc.insert(key.clone(), (partion_to_insert, loc.clone()));
+        self.key_2_loc.insert(key.clone(), loc.clone());
 
-        let cur_partion = partion_to_insert;
-        self.insert_impl(key, loc, hash, cur_partion);
+        self.insert_impl(key, loc, hash, partion_to_insert);
     }
 
     fn insert_impl(&mut self, key: String, loc:[V; D], hash: HashValue, index: usize) {
@@ -715,7 +744,8 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
     }
 
     pub fn delete(&mut self, key: &String) -> Option<ObjectEntry<V, D>> {
-        if let Some((idx, oloc)) = self.key_2_loc.remove(key) {
+        let idx = self.get_pindex_with_key(key).unwrap();
+        if let Some(oloc) = self.key_2_loc.remove(key) {
             self.partions[idx].delete(key, &oloc)
         } else {
             None
@@ -724,8 +754,9 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
 
     pub fn update(&mut self, key: &String, nloc: [V; D]) {
         let nidx = self.point_index(&nloc);
-        let some_data = self.key_2_loc.get(key).map(|(idx, loc)| (*idx, loc.clone()));
-        if let Some((oidx, oloc)) = some_data {
+        let oidx = self.get_pindex_with_key(key).unwrap();
+        let some_data = self.key_2_loc.get(key).map(|loc| loc.clone());
+        if let Some(oloc) = some_data {
             // 更新在同一分区中
             if oidx == nidx {
                 self.partions[nidx].update(key, &oloc, nloc);
@@ -735,8 +766,7 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
                 self.partions[nidx].insert(key.clone(), nloc.clone(), obj.hash());
             }
             // 更新表中的信息
-            let (idx, loc) = self.key_2_loc.get_mut(key).unwrap();
-            *idx = nidx;
+            let loc = self.key_2_loc.get_mut(key).unwrap();
             *loc = nloc;
         }
     }
