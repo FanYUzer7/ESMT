@@ -15,7 +15,7 @@ pub fn continuous_insert_test(c: &mut Criterion) {
     // group.plot_config(PlotConfiguration::default().summary_scale(criterion::AxisScale::Logarithmic));
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("mrt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     MRTreeBuilder::new().base_size(*i).set_testset(&data).build_insert_test()
@@ -25,7 +25,7 @@ pub fn continuous_insert_test(c: &mut Criterion) {
                 }, 
                 criterion::BatchSize::PerIteration);
         });
-        group.bench_with_input(BenchmarkId::new("esmt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("esmt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     if DATASET == "imis" {
@@ -56,7 +56,7 @@ pub fn after_insert_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("After-Insert");
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("mrt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     MRTreeBuilder::new().base_size(*i).set_testset(&data).build_update_test(0.0)
@@ -66,7 +66,7 @@ pub fn after_insert_test(c: &mut Criterion) {
                 }, 
                 criterion::BatchSize::PerIteration);
         });
-        group.bench_with_input(BenchmarkId::new("esmt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("esmt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     if DATASET == "imis" {
@@ -97,7 +97,7 @@ pub fn delete_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("Delete");
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("mrt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     MRTreeBuilder::new().base_size(*i).set_testset(&data).build_delete_test()
@@ -107,7 +107,7 @@ pub fn delete_test(c: &mut Criterion) {
                 }, 
                 criterion::BatchSize::PerIteration);
         });
-        group.bench_with_input(BenchmarkId::new("esmt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("esmt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     if DATASET == "imis" {
@@ -138,7 +138,7 @@ pub fn update_full_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("Update-full");
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("mrt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     MRTreeBuilder::new().base_size(*i).set_testset(&data).build_update_test(1.0)
@@ -148,7 +148,7 @@ pub fn update_full_test(c: &mut Criterion) {
                 }, 
                 criterion::BatchSize::PerIteration);
         });
-        group.bench_with_input(BenchmarkId::new("esmt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("esmt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     if DATASET == "imis" {
@@ -179,7 +179,7 @@ pub fn range_query_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("Range-query");
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("mrt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     MRTreeBuilder::new().base_size(*i).set_testset(&data).build_query_test()
@@ -189,7 +189,7 @@ pub fn range_query_test(c: &mut Criterion) {
                 }, 
                 criterion::BatchSize::PerIteration);
         });
-        group.bench_with_input(BenchmarkId::new("esmt", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(format!("esmt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
                     if DATASET == "imis" {
