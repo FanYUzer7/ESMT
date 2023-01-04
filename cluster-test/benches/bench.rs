@@ -3,6 +3,7 @@ use cluster_test::{read_dataset, utils::{MRTreeBuilder, ESMTreeBuilder}};
 use criterion::{Criterion, criterion_group, criterion_main, BenchmarkId};
 
 pub const DATASET:&'static str = "uniform";
+pub const SAMPLE_SIZE: usize = 20;
 
 pub fn continuous_insert_test(c: &mut Criterion) {
     let data = if DATASET == "imis" {
@@ -11,7 +12,7 @@ pub fn continuous_insert_test(c: &mut Criterion) {
         read_dataset("uniform", PathBuf::from_str("/home/youya/ESMT/target/release/data_set/uniform/uniform.txt").unwrap()).unwrap()
     };
     let mut group = c.benchmark_group("Continuous-Insert");
-    group.sample_size(10);
+    group.sample_size(SAMPLE_SIZE);
     // group.plot_config(PlotConfiguration::default().summary_scale(criterion::AxisScale::Logarithmic));
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
@@ -54,7 +55,7 @@ pub fn after_insert_test(c: &mut Criterion) {
         read_dataset("uniform", PathBuf::from_str("/home/youya/ESMT/target/release/data_set/uniform/uniform.txt").unwrap()).unwrap()
     };
     let mut group = c.benchmark_group("After-Insert");
-    group.sample_size(10);
+    group.sample_size(SAMPLE_SIZE);
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
@@ -96,7 +97,7 @@ pub fn delete_test(c: &mut Criterion) {
         read_dataset("uniform", PathBuf::from_str("/home/youya/ESMT/target/release/data_set/uniform/uniform.txt").unwrap()).unwrap()
     };
     let mut group = c.benchmark_group("Delete");
-    group.sample_size(10);
+    group.sample_size(SAMPLE_SIZE);
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
@@ -138,7 +139,7 @@ pub fn update_full_test(c: &mut Criterion) {
         read_dataset("uniform", PathBuf::from_str("/home/youya/ESMT/target/release/data_set/uniform/uniform.txt").unwrap()).unwrap()
     };
     let mut group = c.benchmark_group("Update-full");
-    group.sample_size(10);
+    group.sample_size(SAMPLE_SIZE);
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [256000usize].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
@@ -180,7 +181,7 @@ pub fn range_query_test(c: &mut Criterion) {
         read_dataset("uniform", PathBuf::from_str("/home/youya/ESMT/target/release/data_set/uniform/uniform.txt").unwrap()).unwrap()
     };
     let mut group = c.benchmark_group("Range-query");
-    group.sample_size(10);
+    group.sample_size(SAMPLE_SIZE);
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
