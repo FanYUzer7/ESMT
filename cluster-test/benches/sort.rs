@@ -21,9 +21,15 @@ pub fn continuous_insert_test(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new(&func_name, i), i, |b, i| {
             b.iter_batched(
                 || {
-                    ESMTreeBuilder::new().base_size(*i)
+                    if DATASET == "imis" {
+                        ESMTreeBuilder::new().base_size(*i)
+                        .range([20.9999999936125, 35.0000449930892], [28.9999499908944, 38.9999999852576])
+                        .set_testset(&data).build_insert_test()
+                    } else {
+                        ESMTreeBuilder::new().base_size(*i)
                         .range([0.0, 0.0], [160.0, 160.0])
                         .set_testset(&data).build_insert_test()
+                    }
                 }, 
                 |esmt| {
                     esmt.exec()
@@ -49,9 +55,15 @@ pub fn range_query_test(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new(&func_name, i), i, |b, i| {
             b.iter_batched(
                 || {
-                    ESMTreeBuilder::new().base_size(*i)
+                    if DATASET == "imis" {
+                        ESMTreeBuilder::new().base_size(*i)
+                        .range([20.9999999936125, 35.0000449930892], [28.9999499908944, 38.9999999852576])
+                        .set_testset(&data).build_query_test()
+                    } else {
+                        ESMTreeBuilder::new().base_size(*i)
                         .range([0.0, 0.0], [160.0, 160.0])
                         .set_testset(&data).build_query_test()
+                    }
                 }, 
                 |esmt| {
                     esmt.exec()
