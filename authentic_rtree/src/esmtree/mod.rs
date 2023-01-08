@@ -1,6 +1,6 @@
 use std::collections::{VecDeque, HashMap, HashSet};
 use types::hash_value::HashValue;
-use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
+use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive, DimensionSorter};
 use crate::shape::Rect;
 use crate::verify::{VerifyObject, VerifyObjectEntry, SiblingObject};
 
@@ -54,7 +54,8 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
             // need to split
             if node_mut.entry.len() > Node::<V, D, C>::CAPACITY {
                 // 分裂并重新计算mbr
-                let new_node = node_mut.split_by_hilbert_sort();
+                // let new_node = node_mut.split_by_hilbert_sort();
+                let new_node = node_mut.split_by_dimension_sort();
                 node.mbr.expand(new_node.mbr());
                 node.mbr.expand(node_mut.mbr());
                 node.entry.push(ESMTEntry::ENode(new_node));
@@ -241,7 +242,7 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
     }
 
     fn compact(root: Node<V,D,C>) -> Vec<ESMTEntry<V, D, C>> {
-        let sorter = HilbertSorter::new(root.mbr());
+        // let sorter = HilbertSorter::new(root.mbr());
         let mut queue = VecDeque::new();
         let mut objs = vec![];
         queue.push_back(root);
@@ -261,7 +262,8 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
                     }));
             }
         }
-        sorter.sort(objs)
+        // sorter.sort(objs)
+        DimensionSorter::sort(objs)
     }
 
     fn build_tree(mut objs: Vec<ESMTEntry<V, D, C>>) -> Node<V, D, C> {
@@ -414,7 +416,8 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
             self.height += 1;
             let mut new_root = Node::new_with_height(self.height);
             let mut origin = self.root.take().unwrap().unpack_node();
-            let another = origin.split_by_hilbert_sort();
+            // let another = origin.split_by_hilbert_sort();
+            let another = origin.split_by_dimension_sort();
             new_root.entry.push(ESMTEntry::ENode(origin));
             new_root.entry.push(ESMTEntry::ENode(another));
             new_root.recalculate_state_after_sort();
@@ -451,7 +454,8 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
                     self.height += 1;
                     let mut new_root = Node::new_with_height(self.height);
                     let mut origin = self.root.take().unwrap().unpack_node();
-                    let another = origin.split_by_hilbert_sort();
+                    // let another = origin.split_by_hilbert_sort();
+                    let another = origin.split_by_dimension_sort();
                     new_root.entry.push(ESMTEntry::ENode(origin));
                     new_root.entry.push(ESMTEntry::ENode(another));
                     new_root.recalculate_state_after_sort();

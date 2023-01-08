@@ -1,5 +1,7 @@
+use std::cmp::Ordering;
 use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Sub};
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
@@ -433,6 +435,20 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
         new_node
     }
 
+    pub fn split_by_dimension_sort(&mut self) -> Node<V, D, C> {
+        let mut new_node = Self::new_with_height(self.height);
+        let areas = self.entry.drain(..).collect::<Vec<_>>();
+        let mut sorted_entry = DimensionSorter::sort(areas);
+        let cnt_after_split = sorted_entry.len() - Self::MIN_FANOUT;
+        self.entry.extend(sorted_entry.drain(..cnt_after_split));
+        new_node.entry.extend(sorted_entry.into_iter());
+
+        // recalculate mbr
+        self.recalculate_state_after_sort();
+        new_node.recalculate_state_after_sort();
+        new_node
+    }
+
     pub fn recalculate_mbr(&mut self) {
         if self.entry.is_empty() {
             return;
@@ -535,5 +551,37 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
             c[i] = (rect._max[i] + rect._min[i]) / (V::from_i32(2));
         }
         c
+    }
+}
+
+pub struct DimensionSorter<V, const D: usize, const C: usize> 
+    where
+        V: MRTreeDefault,
+{
+    _marker: PhantomData<V>,
+}
+
+impl<V, const D: usize, const C: usize> DimensionSorter<V, D, C>
+    where
+        V: MRTreeDefault + MRTreeFunc + FromPrimitive + ToPrimitive,
+{
+    /// assert a & b is point
+    fn cmp(a: &Rect<V, D>, b: &Rect<V, D>) -> Ordering {
+        for i in 0..D {
+            if a._min[i] < b._min[i] {
+                return Ordering::Less;
+            } else if a._min[i] > b._min[i] {
+                return Ordering::Greater;
+            } else {
+                continue;
+            }
+        }
+        return Ordering::Equal;
+    }
+
+    pub(crate) fn sort(mut v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
+        v.sort_by(|a, b| 
+            Self::cmp(a.mbr(), b.mbr()));
+        v
     }
 }
