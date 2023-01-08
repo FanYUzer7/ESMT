@@ -27,3 +27,7 @@ harness = false
 [[bench]]
 name = "bench_real"
 harness = false
+
+[[bench]]
+name = "sort"
+harness = false
