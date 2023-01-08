@@ -48,6 +48,7 @@ impl MRTreeBuilder {
         self.data = db.choose_multiple(&mut rng, self.base + self.q_size)
             .map(|p| p.clone())
             .collect();
+        self.data.shuffle(&mut rng);
         self
     }
 
@@ -287,6 +288,7 @@ impl ESMTreeBuilder {
         self.data = db.choose_multiple(&mut rng, self.base + self.q_size)
             .map(|p| p.clone())
             .collect();
+        self.data.shuffle(&mut rng);
         self
     }
 

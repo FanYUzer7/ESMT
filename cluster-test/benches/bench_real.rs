@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 use cluster_test::{read_dataset, utils::{MRTreeBuilder, ESMTreeBuilder}};
 use criterion::{Criterion, criterion_group, criterion_main, BenchmarkId};
 
-pub const DATASET:&'static str = "uniform";
+pub const DATASET:&'static str = "imis";
 pub const SAMPLE_SIZE: usize = 20;
 
 pub fn continuous_insert_test(c: &mut Criterion) {
@@ -57,7 +57,7 @@ pub fn after_insert_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("After-Insert");
     group.sample_size(SAMPLE_SIZE);
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
-    // for i in [512000usize, 1024000].iter() {
+    // for i in [1000usize, 2000, 4000].iter() {
         group.bench_with_input(BenchmarkId::new(format!("mrt-{}", DATASET), i), i, |b, i| {
             b.iter_batched(
                 || {
@@ -216,6 +216,6 @@ pub fn range_query_test(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(mybench, continuous_insert_test, after_insert_test ,delete_test, update_full_test, range_query_test);
-// criterion_group!(mybench, after_insert_test);
-criterion_main!(mybench);
+criterion_group!(bench_real, continuous_insert_test, after_insert_test ,delete_test, update_full_test, range_query_test);
+// criterion_group!(bench_real, after_insert_test);
+criterion_main!(bench_real);

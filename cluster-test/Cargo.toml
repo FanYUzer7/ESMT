@@ -23,3 +23,7 @@ harness = false
 [[bench]]
 name = "pref_bench"
 harness = false
+
+[[bench]]
+name = "bench_real"
+harness = false
