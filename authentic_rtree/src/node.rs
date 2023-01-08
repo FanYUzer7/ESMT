@@ -1,6 +1,9 @@
 use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Sub};
+use std::{fs::File, io::{BufReader, BufRead}};
+use std::str::FromStr;
+use once_cell::sync::Lazy;
 use types::hash_value::{ESMTHasher, HashValue};
 use crate::shape::Rect;
 
@@ -465,16 +468,52 @@ impl<V, const D: usize, const C: usize> Node<V, D, C>
     }
 }
 
-const _HILBERT3: [u8;64] = [
-    0,3,4,5,58,59,60,63,
-    1,2,7,6,57,56,61,62,
-    14,13,8,9,54,55,50,49,
-    15,12,11,10,53,52,51,48,
-    16,17,30,31,32,33,46,47,
-    19,18,29,28,35,34,45,44,
-    20,23,24,27,36,39,40,43,
-    21,22,25,26,37,38,41,42u8,
-];
+struct HilbertMatrix {
+    order: usize,
+    step: i32,
+    matrix: Vec<u32>
+}
+
+impl HilbertMatrix {
+    #[inline]
+    pub fn order(&self) -> usize {
+        self.order
+    }
+
+    #[inline]
+    pub fn step(&self) -> i32 {
+        self.step
+    }
+
+    #[inline]
+    pub fn at(&self, idx: usize) -> u32 {
+        self.matrix[idx]
+    }
+
+    pub fn new(order: usize, step: i32, matrix: Vec<u32>) -> Self {
+        Self {
+            order,
+            step,
+            matrix,
+        }
+    }
+}
+
+const HILBERT_CURVE: Lazy<HilbertMatrix> = Lazy::new(|| {
+    let mut data = vec![];
+    let file = File::open("/home/youya/ESMT/plotpy/hilbertmtx.txt").unwrap();
+    let buffered = BufReader::new(file);
+    for line in buffered.lines() {
+        if line.is_err() {
+            break;
+        }
+        let line = line.unwrap();
+        if let Ok(d) = u32::from_str(&line) {
+            data.push(d);
+        }
+    }
+    HilbertMatrix::new(6, 64, data)
+});
 
 pub struct HilbertSorter<V, const D: usize, const C: usize>
     where
@@ -499,18 +538,20 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
         }
     }
 
-    pub fn hilbert_idx(&self, obj: &Rect<V, D>) -> u8 {
+    pub fn hilbert_idx(&self, obj: &Rect<V, D>) -> u32 {
         assert_eq!(D, 2, "only support 2-D now!");
+        let order = HILBERT_CURVE.order();
+        let step = V::from_i32(HILBERT_CURVE.step());
         let obj_c = Self::center(obj);
-        let mut x = (((obj_c[0] - self.lowbound[0]) * (V::from_i32(8))) / self.range[0]).to_usize();
-        let mut y = (((obj_c[1] - self.lowbound[1]) * (V::from_i32(8))) / self.range[1]).to_usize();
-        x = x - (x >> 3);
-        y = y - (y >> 3);
-        let idx = (y << 3) | x;
-        if idx >= 64 {
-            println!("lowbound: {:?}, range: {:?}, center: {:?}", self.lowbound, self.range, obj_c);
-        }
-        _HILBERT3[idx]
+        let mut x = (((obj_c[0] - self.lowbound[0]) * step) / self.range[0]).to_usize();
+        let mut y = (((obj_c[1] - self.lowbound[1]) * step) / self.range[1]).to_usize();
+        x = x - (x >> order);
+        y = y - (y >> order);
+        let idx = (y << order) | x;
+        // if idx >= 64 {
+        //     println!("lowbound: {:?}, range: {:?}, center: {:?}", self.lowbound, self.range, obj_c);
+        // }
+        HILBERT_CURVE.at(idx)
     }
 
     pub(crate) fn sort(&self, v: Vec<ESMTEntry<V, D, C>>) -> Vec<ESMTEntry<V, D, C>> {
@@ -535,5 +576,27 @@ impl<V, const D: usize, const C: usize> HilbertSorter<V, D, C>
             c[i] = (rect._max[i] + rect._min[i]) / (V::from_i32(2));
         }
         c
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::HilbertSorter;
+    use crate::node::Rect;
+
+    #[test]
+    fn test_hilbert_idx() {
+        let hilbert_sorter: HilbertSorter<f64, 2, 4> = HilbertSorter::new(&Rect::new([0.0f64, 0.0f64], [64.0f64, 64.0f64]));
+        let points = vec![
+            [0.0f64, 1.7],
+            [35.189, 64.0],
+            [64.0, 29.3742],
+            [26.6746, 0.0],
+            [63.12, 12.10342],
+        ];
+        for p in points {
+            let idx = hilbert_sorter.hilbert_idx(&Rect::new_point(p.clone()));
+            println!("point: {:?} = {}", p, idx);
+        }
     }
 }

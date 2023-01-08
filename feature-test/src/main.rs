@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::str::FromStr;
 use std::time::{Instant};
+use feature_test::xy2d;
 use rand::{Rng, thread_rng};
 use types::hash_value::{HashValue};
 use authentic_rtree::node::{HilbertSorter};
@@ -178,6 +179,9 @@ impl RemoteProcedure {
         methods.insert("bit".to_string(), |cmd, service| {
             num_bits(cmd, service);
         });
+        methods.insert("hilbert".to_string(), |cmd, service| {
+            hilbert_sort(cmd, service);
+        });
         methods
     }
 
@@ -231,6 +235,7 @@ fn help(_cmd: Cmd, _service: &mut CliService) {
     println!("area [point...]          calculate area");
     println!("update [point] [x] [y]   update point location");
     println!("bit [num]                update point location");
+    println!("hilbert [order]          generate hilbert matrix");
     println!("quit                     quit the program");
 }
 
@@ -446,4 +451,16 @@ fn num_bits(cmd: Cmd, _service: &mut CliService) {
         v
     };
     println!("{:?}",bits);
+}
+
+fn hilbert_sort(cmd: Cmd, _service: &mut CliService) {
+    let args = cmd.params();
+    let order = u32::from_str(&args[0]).unwrap();
+    let n = 2i32.pow(order);
+    for x in 1..=n {
+        for y in (1..=n).rev() {
+            print!("{}, ", xy2d(n, x, y));
+        }
+        println!()
+    }
 }
