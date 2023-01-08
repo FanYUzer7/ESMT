@@ -12,7 +12,7 @@ pub fn continuous_insert_test(c: &mut Criterion) {
     // group.plot_config(PlotConfiguration::default().summary_scale(criterion::AxisScale::Logarithmic));
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("esmt-hilbert", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new("esmt-hilbert6", i), i, |b, i| {
             b.iter_batched(
                 || {
                     ESMTreeBuilder::new().base_size(*i)
@@ -34,7 +34,7 @@ pub fn range_query_test(c: &mut Criterion) {
     group.sample_size(SAMPLE_SIZE);
     for i in [1000usize, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000].iter() {
     // for i in [1000usize, 2000, 4000].iter() {
-        group.bench_with_input(BenchmarkId::new("esmt-hilbert-query", i), i, |b, i| {
+        group.bench_with_input(BenchmarkId::new("esmt-hilbert6-query", i), i, |b, i| {
             b.iter_batched(
                 || {
                     ESMTreeBuilder::new().base_size(*i)
