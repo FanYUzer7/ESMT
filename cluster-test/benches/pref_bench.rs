@@ -6,7 +6,7 @@ use bench_pref::FlamegraphProfiler;
 
 pub fn delete_flamegraph_test(c: &mut Criterion) {
     let data = read_dataset("uniform", PathBuf::from_str("/home/youya/ESMT/target/release/data_set/uniform/uniform.txt").unwrap()).unwrap();
-    let mut group = c.benchmark_group("del-flame");
+    let mut group = c.benchmark_group("construct flame");
     group.bench_function("mrt", |b| {
         b.iter_batched(
             || {
@@ -17,12 +17,12 @@ pub fn delete_flamegraph_test(c: &mut Criterion) {
             }, 
             criterion::BatchSize::PerIteration);
     });
-    group.bench_function("esmt", |b| {
+    group.bench_function("esmt-h6-8000", |b| {
         b.iter_batched(
             || {
-                ESMTreeBuilder::new().base_size(10000)
+                ESMTreeBuilder::new().base_size(8000)
                     .range([0.0, 0.0], [160.0, 160.0])
-                    .set_testset(&data).build_delete_test()
+                    .set_testset(&data).build_insert_test()
             }, 
             |esmt| {
                 esmt.exec()

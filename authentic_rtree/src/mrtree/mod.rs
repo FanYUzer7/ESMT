@@ -427,47 +427,58 @@ mod test {
     #[test]
     fn test_efficient() {
         let mut time = 0;
-        for _ in 0..100 {
-            let mut v = generate_random_rect();
-            let sorter = HilbertSorter::<Integer, 2, 40>::new(&Rect::new([0, 0], [100, 100]));
+        let v = generate_random_rect();
+        let sorter = HilbertSorter::<Integer, 2, 40>::new(&Rect::new([0, 0], [100, 100]));
+        for i in 0..v.len() {
+            println!("{}th entry", i);
             let start = Instant::now();
-            let _sorted_v = {
-                v.sort_by(|a, b| {
-                    let a_idx = sorter.hilbert_idx(a.mbr());
-                    let b_idx = sorter.hilbert_idx(b.mbr());
-                    a_idx.cmp(&b_idx)
-                });
-                v
-            };
+            let _idx = sorter.hilbert_idx(v[i].mbr());
             time += start.elapsed().as_micros();
+            println!()
         }
-        println!("sort by func avg time = {}us", time / 100); //2200us
+        println!("hilbert_idx avg time: {}us", time / 1000);
+        // for _ in 0..100 {
+        //     let mut v = generate_random_rect();
+        //     let sorter = HilbertSorter::<Integer, 2, 40>::new(&Rect::new([0, 0], [100, 100]));
+        //     let start = Instant::now();
+        //     let _sorted_v = {
+        //         v.sort_by(|a, b| {
+        //             let a_idx = sorter.hilbert_idx(a.mbr());
+        //             let b_idx = sorter.hilbert_idx(b.mbr());
+        //             a_idx.cmp(&b_idx)
+        //         });
+        //         v
+        //     };
+        //     time += start.elapsed().as_micros();
+        // }
+        // println!("sort by func avg time = {}us", time / 100); //2200us
 
-        time = 0;
-        let mut time_p = 0;
-        for _ in 0..100 {
-            let v = generate_random_rect();
-            let sorter = HilbertSorter::<Integer ,2, 40>::new(&Rect::new([0, 0], [100, 100]));
-            let start = Instant::now();
-            let mut sorted_v = {
-                let mut m = v.into_iter().map(|e| (sorter.hilbert_idx(e.mbr()), e)).collect::<Vec<_>>();
-                m.sort_by(|a,b| a.0.cmp(&b.0));
-                m.into_iter().map(|(_,e)| e).collect::<Vec<_>>()
-            };
-            time += start.elapsed().as_micros();
-            sorted_v.pop();
-            time_p += start.elapsed().as_micros();
-        }
-        println!("pack iter & unpack avg time = {}us", time / 100);
-        println!("pack iter & unpack avg time = {}us", time_p / 100); //550us
+        // time = 0;
+        // let mut time_p = 0;
+        // for _ in 0..100 {
+        //     let v = generate_random_rect();
+        //     let sorter = HilbertSorter::<Integer ,2, 40>::new(&Rect::new([0, 0], [100, 100]));
+        //     let start = Instant::now();
+        //     let mut sorted_v = {
+        //         let mut m = v.into_iter().map(|e| (sorter.hilbert_idx(e.mbr()), e)).collect::<Vec<_>>();
+        //         m.sort_by(|a,b| a.0.cmp(&b.0));
+        //         m.into_iter().map(|(_,e)| e).collect::<Vec<_>>()
+        //     };
+        //     time += start.elapsed().as_micros();
+        //     sorted_v.pop();
+        //     time_p += start.elapsed().as_micros();
+        // }
+        // println!("pack iter & unpack avg time = {}us", time / 100);
+        // println!("pack iter & unpack avg time = {}us", time_p / 100); //550us
     }
 
     fn generate_random_rect() -> Vec<ESMTEntry<Integer, 2, 40>> {
         let mut rng = thread_rng();
         let mut v = vec![];
         for _ in 0..1000 {
-            let p = rng.gen_range(0..100);
-            v.push(ESMTEntry::Object(ObjectEntry::new("key".to_string(), [p, p], HashValue::zero())));
+            let x = rng.gen_range(0..100);
+            let y = rng.gen_range(0..100);
+            v.push(ESMTEntry::Object(ObjectEntry::new("key".to_string(), [x, y], HashValue::zero())));
         }
         v
     }
