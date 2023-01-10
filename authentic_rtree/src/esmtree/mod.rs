@@ -424,6 +424,41 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         }
     }
 
+    fn insert_node(&mut self, node: Node<V, D, C>, keys: Vec<String>) {
+        if self.root.is_none() {
+            self.height = node.height;
+            self.len = keys.len();
+            self.keys.extend(keys);
+            self.root = Some(EfficientMRTreeNode::new(node));
+        } else {
+            let (large_tree, small_tree) = if self.height < node.height {
+                (node, self.root.take().unwrap().unpack_node())
+            } else {
+                (self.root.take().unwrap().unpack_node(), node)
+            };
+
+            let expected_insert_height = (large_tree.height as i32) - (small_tree.height as i32) - 1;
+            if expected_insert_height >= 0 {
+                let loc = small_tree.mbr.clone();
+                self.root = Some(EfficientMRTreeNode::new(large_tree));
+                self.insert_impl(ESMTEntry::ENode(small_tree), &loc, expected_insert_height as u32);
+            } else {
+                let new_root = Node::new_with_entry(
+                    small_tree.height + 1,
+                    vec![
+                        ESMTEntry::ENode(large_tree),
+                        ESMTEntry::ENode(small_tree),
+                    ]
+                );
+                self.height = new_root.height;
+                self.root = Some(EfficientMRTreeNode::new(new_root));
+            }
+            self.len += keys.len();
+            self.keys.extend(keys);
+        }
+
+    }
+
     pub fn delete(&mut self, key: &str, rect: &[V;D]) -> Option<ObjectEntry<V, D>> {
         if let Some(root) = &mut self.root {
             let loc = Rect::new_point(rect.clone());
@@ -618,6 +653,7 @@ pub struct PartionManager<V, const D: usize, const C: usize>
 {
     // 四叉树的高度，根节点的高度为0
     height: u32,
+    internal_pnum: usize,
     areas: Vec<Rect<V, D>>,
     centers: Vec<Rect<V, D>>,
     partions: Vec<PartionTree<V, D, C>>,
@@ -673,6 +709,7 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
 
         Self {
             height,
+            internal_pnum: partion_cnt - Self::DEGREE.pow(height) as usize,
             areas,
             centers,
             partions,
@@ -794,6 +831,44 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
             }
         }
         res
+    }
+
+    pub fn batch_insert(&mut self, items: Vec<(String, [V; D], HashValue)>) {
+        let mut areas = vec![None; self.partions.len() - self.internal_pnum];
+        let mut partion_set = vec![Vec::new(); self.partions.len() - self.internal_pnum];
+        for item in items {
+            let pidx = self.point_index(&item.1) - self.internal_pnum;
+            if areas[pidx].is_none() {
+                areas[pidx] = Some(Rect::new_point(item.1.clone()));
+            } else {
+                areas[pidx].as_mut().unwrap().expand(&Rect::new_point(item.1.clone()));
+            }
+            partion_set[pidx].push(item);
+        }
+        // 分区建树
+        let entry_to_insert = partion_set.into_iter().zip(areas).enumerate()
+            .filter(|(_, (set,_))| !set.is_empty())
+            .map(|(pidx, (set, area))| {
+                let mut keys = vec![];
+                let mut keys_to_loc = vec![];
+                let to_sort = set.into_iter()
+                    .map(|item| {
+                        keys.push(item.0.clone());
+                        keys_to_loc.push((item.0.clone(), item.1.clone()));
+                        ESMTEntry::Object(ObjectEntry::new(item.0, item.1, item.2))
+                    })
+                    .collect();
+                let sorter: HilbertSorter<V, D, C> = HilbertSorter::new(&area.unwrap());
+                let sorted_set = sorter.sort(to_sort);
+                (pidx,EfficientMRTreeNode::build_tree(sorted_set), keys, keys_to_loc)
+            })
+            .collect::<Vec<_>>();
+        for (mut pidx, node, keys, k2l) in entry_to_insert {
+            pidx += self.internal_pnum;
+            self.key_2_loc.extend(k2l);
+            self.merge(pidx, 1);
+            self.partions[pidx].insert_node(node, keys);
+        }
     }
 }
 #[cfg(test)]

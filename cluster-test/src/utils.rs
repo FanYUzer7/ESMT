@@ -10,6 +10,16 @@ pub enum TreeOpt {
     Query(Rect<f64, 2>),
 }
 
+impl TreeOpt {
+    pub fn to_insert(self) -> Option<(String, [f64; 2], HashValue)> {
+        if let TreeOpt::Insert(k, l, h) = self {
+            Some((k, l, h))
+        } else {
+            None
+        }
+    }
+}
+
 pub struct MRTreeTestManager {
     pub data: Vec<TreeOpt>,
     pub tree: MRTree<f64, 2, 51>,
@@ -236,6 +246,7 @@ impl MRTreeTestManager {
 }
 
 pub struct ESMTreeTestManager {
+    pub prepare: Vec<Vec<(String, [f64; 2], HashValue)>>,
     pub data: Vec<TreeOpt>,
     pub tree: PartionManager<f64, 2, 51>,
 }
@@ -305,6 +316,7 @@ impl ESMTreeBuilder {
             .collect();
         
         ESMTreeTestManager {
+            prepare: vec![],
             data,
             tree,
         }
@@ -354,6 +366,7 @@ impl ESMTreeBuilder {
         data.shuffle(&mut rng);
 
         ESMTreeTestManager {
+            prepare: vec![],
             data,
             tree,
         }
@@ -387,6 +400,7 @@ impl ESMTreeBuilder {
             .collect();
         
         ESMTreeTestManager {
+            prepare: vec![],
             data,
             tree,
         }
@@ -420,7 +434,74 @@ impl ESMTreeBuilder {
         }).collect();
 
         ESMTreeTestManager {
+            prepare: vec![],
             data,
+            tree,
+        }
+    }
+
+    pub fn build_batch_construct(self, batch_size: usize) -> ESMTreeTestManager {
+        let tree = PartionManager::new(self.range, self.p_height);
+        let mut data = self.data.into_iter()
+            .enumerate()
+            .take(self.base)
+            .map(|(idx,l)| {
+                let k = format!("test/esmt/{}", idx);
+                let hash = ESMTHasher::default().update(k.as_bytes()).finish();
+                (k, l, hash) 
+            })
+            .collect::<Vec<_>>();
+    
+        let mut prepare = vec![];
+        while data.len() >= batch_size {
+            let fetched = data.drain(..batch_size).collect();
+            prepare.push(fetched);
+        }
+        let remain = data.drain(..).collect();
+        prepare.push(remain);
+
+        ESMTreeTestManager {
+            prepare,
+            data: vec![],
+            tree,
+        }
+    }
+
+    pub fn build_batch_insert(self, batch_size: usize) -> ESMTreeTestManager {
+        let insert_vec = self.data[self.base..].to_vec();
+        // init
+        let mut tree = PartionManager::new(self.range, self.p_height);
+        let iter = self.data.into_iter()
+            .enumerate()
+            .take(self.base)
+            .map(|(idx, point)| {
+                let key = format!("test/esmt/{}", idx);
+                let hash = ESMTHasher::default().update(key.as_bytes()).finish();
+                (key, point, hash)
+            });
+        for (key, loc, hash) in iter {
+            tree.insert(key, loc, hash);
+        }
+        // 构造数据
+        let mut data = insert_vec.into_iter()
+            .enumerate()
+            .map(|(idx, loc)| {
+                let key = format!("test/esmt/{}", idx + self.base);
+                let hash = ESMTHasher::default().update(key.as_bytes()).finish();
+                (key, loc, hash)
+            })
+            .collect::<Vec<_>>();
+        let mut prepare = vec![];
+        while data.len() >= batch_size {
+            let fetched = data.drain(..batch_size).collect();
+            prepare.push(fetched);
+        }
+        let remain = data.drain(..).collect();
+        prepare.push(remain);
+
+        ESMTreeTestManager {
+            prepare,
+            data: vec![],
             tree,
         }
     }
@@ -444,6 +525,14 @@ impl ESMTreeTestManager {
                     let _ = tree.range_query(&query);
                 },
             }
+        }
+        tree
+    }
+
+    pub fn exec_batch(self) -> PartionManager<f64, 2, 51> {
+        let mut tree = self.tree;
+        for batch in self.prepare {
+            tree.batch_insert(batch);
         }
         tree
     }
