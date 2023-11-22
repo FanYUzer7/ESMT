@@ -1,8 +1,12 @@
+use core::time;
 use std::collections::{VecDeque, HashMap, HashSet};
+use std::time::{Instant, Duration};
 use types::hash_value::HashValue;
 use crate::node::{ESMTEntry, FromPrimitive, HilbertSorter, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
 use crate::verify::{VerifyObject, VerifyObjectEntry, SiblingObject};
+use threadpool::ThreadPool;
+use std::sync::{Arc, Barrier, Mutex};
 
 struct EfficientMRTreeNode<V, const D: usize, const C: usize>
     where
@@ -327,6 +331,35 @@ impl<V, const D: usize, const C: usize> EfficientMRTreeNode<V, D, C>
         }
         vo
     }
+
+    pub fn traverse(&self, height: u32) -> VerifyObject<V, D> {
+        Self::traverse_impl(&self.node, height)
+    }
+
+    fn traverse_impl(node: &Node<V, D, C>, height: u32) -> VerifyObject<V, D> {
+        let mut vo = VerifyObject::new();
+        if height == 0 {
+            vo.push(VerifyObjectEntry::LevelBegin);
+            for entry in node.entry.iter() {
+                if entry.get_object().is_stale() {
+                    vo.push(VerifyObjectEntry::Sibling(SiblingObject::from(entry.get_object())));
+                } else {
+                    vo.push(VerifyObjectEntry::Target(entry.get_object().clone()));
+                }
+            }
+            vo.push(VerifyObjectEntry::LevlEnd);
+        } else {
+            let mut temp_vo = VerifyObject::new();
+            for ety in node.entry.iter() {
+                let sub_vo = Self::traverse_impl(ety.get_node(), height - 1);
+                temp_vo.extend(sub_vo);
+            }
+            vo.push(VerifyObjectEntry::LevelBegin);
+            vo.extend(temp_vo);
+            vo.push(VerifyObjectEntry::LevlEnd);
+        }
+        vo
+    }
 }
 
 pub struct PartionTree<V, const D: usize, const C: usize> 
@@ -635,6 +668,19 @@ impl<V, const D: usize, const C: usize> PartionTree<V, D, C>
         }
     }
 
+    pub fn traverse(&self) -> Option<VerifyObject<V, D>> {
+        if self.root.is_none() {
+            return None;
+        }
+        let root = self.root.as_ref().unwrap();
+        let vo = root.traverse(self.height);
+        if vo.is_empty() {
+            None
+        } else {
+            Some(vo)
+        }
+    }
+
     pub fn display(&self) -> (Vec<(u32, Rect<V, D>)>, Vec<(bool, Rect<V, D>)>) {
         match &self.root {
             None => {
@@ -662,9 +708,9 @@ pub struct PartionManager<V, const D: usize, const C: usize>
 
 impl<V, const D: usize, const C: usize> PartionManager<V, D, C> 
     where
-        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
+        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive + Send + 'static,
 {
-    const BASIC_THRESHOLD: usize = 1024;
+    const BASIC_THRESHOLD: usize = 2500;
     const DEGREE: usize = 2usize.pow(D as u32);
     /// 二维数据下的区域划分
     /// y
@@ -833,6 +879,120 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
         res
     }
 
+    pub fn target_range_query(&self, targets: Vec<usize>, query: Rect<V, D>) -> Vec<VerifyObject<V, D>> {
+        let mut res = vec![];
+        for target in targets {
+            if let Some(vo) = self.partions[target].range_query(&query) {
+                res.push(vo);
+            }
+        }
+        res
+    }
+
+    pub fn target_traverse(&self, targets: Vec<usize>) -> Vec<VerifyObject<V, D>> {
+        let mut res = vec![];
+        for target in targets {
+            if let Some(vo) = self.partions[target].traverse() {
+                res.push(vo);
+            }
+        }
+        res
+    }
+
+    pub fn traverse(&self, query: &Rect<V, D>) -> Vec<VerifyObject<V, D>> {
+        let mut res = vec![];
+        for p in self.partions.iter() {
+            if p.area.intersects(query) {
+                if let Some(vo) = p.traverse() {
+                    res.push(vo);
+                }
+            }
+        }
+        res
+    }
+
+    pub fn edge_query(&self, query: &Rect<V, D>) -> Vec<VerifyObject<V, D>> {
+        let mut res = vec![];
+        let mut qlist = Vec::with_capacity(self.partions.len());
+        let mut tlist = Vec::with_capacity(self.partions.len());
+        for (i, p) in self.partions.iter().enumerate() {
+            if p.area.intersects(query) {
+                if query.contains(&p.area) {
+                    tlist.push(i);
+                } else {
+                    qlist.push(i);
+                }
+            }
+        }
+        for q in qlist {
+            if let Some(vo) = self.partions[q].range_query(query) {
+                res.push(vo);
+            }
+        }
+        for t in tlist {
+            if let Some(vo) = self.partions[t].traverse() {
+                res.push(vo);
+            }
+        }
+        res
+    }
+
+    #[inline]
+    fn get_partition(list: &Vec<usize>) -> Vec<usize> {
+        let (base, cnt) = (list.len() / 16, list.len() % 16);
+        let mut res = vec![base; 16-cnt];
+        res.extend(vec![base+1; cnt]);
+        res
+    }
+
+    pub fn parallel_query(&self, query: &Rect<V, D>, pool: &ThreadPool) -> (Duration, Vec<VerifyObject<V, D>>, Vec<f64>) {
+        let res = vec![];
+        // get list
+        let mut qlist = Vec::with_capacity(self.partions.len());
+        let mut tlist = Vec::with_capacity(self.partions.len());
+        for (i, p) in self.partions.iter().enumerate() {
+            if p.area.intersects(query) {
+                if query.contains(&p.area) {
+                    tlist.push(i);
+                } else {
+                    qlist.push(i);
+                }
+            }
+        }
+        // partition list
+        let ql_part = Self::get_partition(&qlist);
+        let tl_part = Self::get_partition(&tlist);
+
+        // lanuch task
+        let ptr = PartitionPointerWrapper::new(self);
+        let time_vec = Arc::new(Mutex::new(vec![0.0f64;16]));
+        // let barrier = Arc::new(Barrier::new(17));
+        for i in 0..16usize {
+            let qtask_list = qlist.drain(0..ql_part[i]).collect::<Vec<_>>();
+            let ttask_list = tlist.drain(0..tl_part[i]).collect::<Vec<_>>();
+            let q = query.clone();
+            let cache = time_vec.clone();
+            // let b = barrier.clone();
+            pool.execute(move || {
+                let start = Instant::now();
+                let _ = ptr.get().target_range_query(qtask_list, q);
+                let _ = ptr.get().target_traverse(ttask_list);
+                {
+                    // let eclipse = Instant::elapsed(&start).as_secs_f64()*1000.0f64;
+                    // let mut time_cache = cache.lock().unwrap();
+                    // (*time_cache)[i] = eclipse;
+                }
+                // b.wait();
+            });
+        }
+        // barrier.wait();
+        let start = Instant::now();
+        pool.join();
+        let eclipse = Instant::elapsed(&start);
+        let output_vec = time_vec.lock().unwrap().clone();
+        (eclipse, res, output_vec)
+    }
+
     pub fn batch_insert(&mut self, items: Vec<(String, [V; D], HashValue)>) {
         let mut areas = vec![None; self.partions.len() - self.internal_pnum];
         let mut partion_set = vec![Vec::new(); self.partions.len() - self.internal_pnum];
@@ -870,7 +1030,63 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
             self.partions[pidx].insert_node(node, keys);
         }
     }
+
+    pub fn batch_iter_insert(&mut self, items: Vec<(String, [V; D], HashValue)>) {
+        let mut partion_set = vec![Vec::new(); self.partions.len() - self.internal_pnum];
+        for item in items {
+            let pidx = self.point_index(&item.1) - self.internal_pnum;
+            partion_set[pidx].push(item);
+        }
+        // 分区建树
+        for (mut pidx, node) in partion_set.into_iter().enumerate() {
+            pidx += self.internal_pnum;
+            for (key, loc, hash) in node {
+                self.insert(key, loc, hash);
+            }
+        }
+    }
 }
+
+struct PartitionPointerWrapper<V, const D: usize, const C: usize> 
+    where
+        V: MRTreeDefault,
+{
+    ptr: * const PartionManager<V, D, C>,
+}
+
+impl<V, const D: usize, const C: usize> PartitionPointerWrapper<V, D, C> 
+    where
+        V: MRTreeDefault + MRTreeFunc + ToPrimitive + FromPrimitive,
+{
+    pub fn new(ptr: &PartionManager<V, D, C>) -> Self {
+        Self { ptr }
+    }
+
+    pub fn get(&self) -> &PartionManager<V, D, C> {
+        unsafe {
+            &(*self.ptr)
+        }
+    }
+}
+
+unsafe impl<V,const  D: usize, const C: usize> Send for PartitionPointerWrapper<V, D, C>
+    where
+        V: MRTreeDefault,
+{}
+
+impl<V,const  D: usize, const C: usize> Clone for PartitionPointerWrapper<V, D, C>
+    where
+        V: MRTreeDefault,
+{
+    fn clone(&self) -> Self {
+        Self { ptr: self.ptr.clone() }
+    }
+} 
+
+impl<V,const  D: usize, const C: usize> Copy for PartitionPointerWrapper<V, D, C>
+    where
+        V: MRTreeDefault,
+{}
 #[cfg(test)]
 mod test {
     use types::hash_value::HashValue;

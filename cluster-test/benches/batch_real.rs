@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 use cluster_test::{read_dataset, utils::{ESMTreeBuilder}};
 use criterion::{Criterion, criterion_group, criterion_main, BenchmarkId};
 
-pub const DATASET:&'static str = "uniform";
+pub const DATASET:&'static str = "imis";
 pub const SAMPLE_SIZE: usize = 20;
 pub const BATCH_SIZE: usize = 2000;
 pub const QUERY_SIZE: usize = 2000;

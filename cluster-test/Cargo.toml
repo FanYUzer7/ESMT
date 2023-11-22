@@ -12,6 +12,8 @@ types = { path = "../types", version = "0.1.0" }
 structopt = "0.3"
 rand = "0.8.5"
 bench_pref = { path = "../bench_pref", version = "0.1.0" }
+tokio = "1.33.0"
+threadpool = "1.8.1"
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -34,4 +36,12 @@ harness = false
 
 [[bench]]
 name = "batch"
+harness = false
+
+[[bench]]
+name = "batch_real"
+harness = false
+
+[[bench]]
+name = "test_bench"
 harness = false

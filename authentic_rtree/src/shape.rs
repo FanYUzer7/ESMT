@@ -211,3 +211,8 @@ where
         }
     }
 }
+
+unsafe impl<V, const D: usize> Send for Rect<V, D>
+where
+    V: Default + Debug + Copy + Send,
+{}

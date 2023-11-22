@@ -7,4 +7,5 @@ members = [
     "visual",
     "cluster-test",
     "bench_pref",
+    "node",
 ]

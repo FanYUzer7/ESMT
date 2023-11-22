@@ -113,7 +113,7 @@ impl CliService {
 }
 
 struct RemoteProcedure {
-    m: HashMap<String, Box<dyn Method>>,
+    m: HashMap<String, Box<dyn Fn(Cmd, &mut CliService)>>,
 }
 
 trait Method {
@@ -149,8 +149,9 @@ impl RemoteProcedure {
     }
 
     pub fn insert<F: Fn(Cmd, &mut CliService) + 'static>(&mut self, method: String, handle: F) {
-        let func_hanle = FuncHandler::new(handle);
-        self.m.insert(method, Box::new(func_hanle));
+        // let func_hanle = FuncHandler::new(handle);
+        // self.m.insert(method, Box::new(func_hanle));
+        self.m.insert(method, Box::new(handle));
     }
 
     pub fn default() -> Self {
@@ -187,7 +188,8 @@ impl RemoteProcedure {
 
     pub fn call(&self, cmd: Cmd, service: &mut CliService) {
         let func = self.m.get(cmd.pattern()).unwrap();
-        (*func).call(cmd, service);
+        // (*func).call(cmd, service);
+        func(cmd, service)
     }
 }
 

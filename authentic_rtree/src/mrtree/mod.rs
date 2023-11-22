@@ -1,7 +1,39 @@
+use std::cell::RefCell;
+use std::sync::Mutex;
+
 use types::hash_value::{HashValue};
 use crate::node::{ESMTEntry, FromPrimitive, MRTreeDefault, MRTreeFunc, Node, ObjectEntry, ToPrimitive};
 use crate::shape::Rect;
 use crate::verify::{VerifyObject, VerifyObjectEntry, SiblingObject};
+use once_cell::sync::Lazy;
+
+pub struct MetricsCnt(u64);
+
+impl MetricsCnt {
+    pub fn new() -> Self {
+        MetricsCnt(0)
+    }
+
+    pub fn add(&mut self) {
+        self.0 += 1;
+    }
+
+    pub fn value(&self) -> u64 {
+        self.0
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = 0;
+    }
+}
+
+pub static NODE_TRAVERSE: Lazy<Mutex<MetricsCnt>> = Lazy::new(|| {
+    Mutex::new(MetricsCnt::new())
+});
+
+pub static NODE_SPLIT: Lazy<Mutex<MetricsCnt>> = Lazy::new(|| {
+    Mutex::new(MetricsCnt::new())
+});
 
 struct MerkleRTreeNode<V, const D: usize, const C: usize>
     where
@@ -28,6 +60,7 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
 
     /// 插入，重新计算当前层的mbr以及下一层的hash
     fn insert_by_mrt(node: &mut Node<V, D, C>, obj: ESMTEntry<V, D, C>, loc: &Rect<V, D>, height: u32) {
+        (*NODE_TRAVERSE).lock().unwrap().add();
         if height == 0 {
             if node.entry.is_empty() {
                 node.entry.push(obj);
@@ -43,6 +76,7 @@ impl<V, const D: usize, const C: usize> MerkleRTreeNode<V, D, C>
             Self::insert_by_mrt(node_mut, obj, loc, height - 1);
             // need to split
             if node_mut.entry.len() > Node::<V, D, C>::CAPACITY {
+                (*NODE_SPLIT).lock().unwrap().add();
                 // 分裂并重新计算mbr
                 let new_node = node_mut.split_by_hilbert_sort();
                 node.mbr.expand(new_node.mbr());
