@@ -827,7 +827,11 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
     }
 
     pub fn delete(&mut self, key: &String) -> Option<ObjectEntry<V, D>> {
-        let idx = self.get_pindex_with_key(key).unwrap();
+        let idx = self.get_pindex_with_key(key);
+        if let None = idx {
+            return None;
+        }
+        let idx = idx.unwrap();
         if let Some(oloc) = self.key_2_loc.remove(key) {
             self.partions[idx].delete(key, &oloc)
         } else {
@@ -1044,6 +1048,14 @@ impl<V, const D: usize, const C: usize> PartionManager<V, D, C>
                 self.insert(key, loc, hash);
             }
         }
+    }
+
+    pub fn get_hashes(&self) -> Vec<Option<HashValue>> {
+        let mut res = Vec::with_capacity(self.partions.len());
+        for p in self.partions.iter() {
+            res.push(p.root_hash());
+        }
+        res
     }
 }
 
